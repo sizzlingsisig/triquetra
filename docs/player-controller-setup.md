@@ -67,6 +67,8 @@ Suggested source folders:
 - Lock events update `GameManager` guardian pool.
 - If all forms are locked, `GameManager` emits timeline reset (`no_guardians_remaining`).
 - Basic input buffering and swap coyote window are present in `PlayerController`.
+- `GuardianSprite` automatically flips on horizontal movement (`flip_h`) and preserves last facing while idle.
+- Bow special (`right click` / `special`) now performs a short backward disengage along the X axis, spawns a one-shot burst, and leaves a brief slide afterimage trail.
 
 ## Next Integration Points
 

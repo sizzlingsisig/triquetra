@@ -992,10 +992,10 @@ animations = [{
 "speed": 12.0
 }, {
 "frames": [{
-"duration": 1.0,
+"duration": 5.0,
 "texture": ExtResource("12_myrg7")
 }],
-"loop": true,
+"loop": false,
 "name": &"sword_block",
 "speed": 12.0
 }, {
@@ -1099,11 +1099,13 @@ animations = [{
 }]
 
 [node name="Player" type="CharacterBody2D" unique_id=1971314449]
+scale = Vector2(1.5, 1.5)
 script = ExtResource("1_1d8qn")
 
 [node name="GuardianSprite" type="AnimatedSprite2D" parent="." unique_id=683216106]
+position = Vector2(53.333336, 277.99976)
 sprite_frames = SubResource("SpriteFrames_5miun")
-animation = &"spear_attack"
+animation = &"sword_block"
 
 [node name="States" type="Node" parent="." unique_id=139861974]
 

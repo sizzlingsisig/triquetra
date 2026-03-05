@@ -23,11 +23,40 @@ func handle_action(action_name: StringName) -> bool:
 		&"primary_attack":
 			return _play_next_primary_attack()
 		&"special":
-			return _play_first_available([
-				&"spear_impale",
-			])
+			var played: bool = _play_first_available([&"spear_impale"])
+			if played:
+				_spawn_impale_fx()
+				# 3D tracking VFX stub
+				if _player and _player.has_method("shake_camera"):
+					_player.shake_camera(6.0, 0.12)
+			return played
 		_:
 			return false
+func _spawn_impale_fx() -> void:
+	if not _player:
+		return
+	var particles: CPUParticles2D = CPUParticles2D.new()
+	particles.name = "SpearImpaleFx"
+	particles.one_shot = true
+	particles.emitting = false
+	particles.amount = 12
+	particles.lifetime = 0.16
+	particles.explosiveness = 1.0
+	particles.spread = 24.0
+	particles.direction = Vector2(0, -1)
+	particles.initial_velocity_min = 90.0
+	particles.initial_velocity_max = 160.0
+	particles.scale_amount_min = 1.0
+	particles.scale_amount_max = 1.2
+	particles.modulate = Color(0.8, 1.0, 0.8, 0.7)
+	particles.position = Vector2(0, -10)
+	_player.add_child(particles)
+	particles.emitting = true
+	var cleanup_timer: SceneTreeTimer = _player.get_tree().create_timer(particles.lifetime + 0.2)
+	cleanup_timer.timeout.connect(func() -> void:
+		if is_instance_valid(particles):
+			particles.queue_free()
+	)
 
 func _play_next_primary_attack() -> bool:
 	for _attempt in range(PRIMARY_ATTACK_ANIMATIONS.size()):

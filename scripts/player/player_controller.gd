@@ -7,6 +7,10 @@ signal form_locked(form_id: StringName)
 @export var move_speed: float = 180.0
 @export var coyote_time_window: float = 0.12
 @export var input_buffer_window: float = 0.12
+@export var post_action_idle_hold: float = 0.08
+@export var jump_height: float = 20.0
+@export var jump_duration: float = 0.35
+@export var jump_cooldown: float = 0.12
 
 @export var action_move_left: StringName = &"ui_left"
 @export var action_move_right: StringName = &"ui_right"
@@ -14,6 +18,7 @@ signal form_locked(form_id: StringName)
 @export var action_move_down: StringName = &"ui_down"
 @export var action_attack: StringName = &"attack"
 @export var action_special: StringName = &"special"
+@export var action_jump: StringName = &"jump"
 @export var action_swap_next: StringName = &"swap_next"
 @export var action_swap_prev: StringName = &"swap_prev"
 
@@ -34,10 +39,28 @@ var _game_manager: Node
 var _buffered_action: StringName = &""
 var _buffer_remaining: float = 0.0
 var _swap_coyote_remaining: float = 0.0
+var _post_action_idle_remaining: float = 0.0
+var _is_jumping: bool = false
+var _jump_elapsed: float = 0.0
+var _jump_cooldown_remaining: float = 0.0
+var _sprite_base_position: Vector2 = Vector2.ZERO
+var _facing_left: bool = false
+
+# Camera2D shake integration
+@onready var _camera: Camera2D = $Camera2D
+
+func shake_camera(intensity: float = 8.0, duration: float = 0.15) -> void:
+	if _camera:
+		var tween := create_tween()
+		var original_offset := _camera.offset
+		tween.tween_property(_camera, "offset", Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity)), duration)
+		tween.tween_property(_camera, "offset", original_offset, duration)
 
 func _ready() -> void:
 	_game_manager = get_node_or_null("/root/GameManager")
 	if _guardian_sprite:
+		_sprite_base_position = _guardian_sprite.position
+		_guardian_sprite.flip_h = _facing_left
 		_guardian_sprite.animation_finished.connect(_on_guardian_animation_finished)
 	_cache_states()
 	_connect_state_signals()
@@ -46,11 +69,13 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_apply_movement()
-	_update_locomotion_animation()
-	move_and_slide()
-
 	if _active_state:
 		_active_state.physics_update(delta)
+	_update_jump(delta)
+	if _post_action_idle_remaining > 0.0:
+		_post_action_idle_remaining -= delta
+	_update_locomotion_animation()
+	move_and_slide()
 
 	if _buffer_remaining > 0.0:
 		_buffer_remaining -= delta
@@ -59,6 +84,9 @@ func _physics_process(delta: float) -> void:
 
 	if _swap_coyote_remaining > 0.0:
 		_swap_coyote_remaining -= delta
+
+	if _jump_cooldown_remaining > 0.0:
+		_jump_cooldown_remaining -= delta
 
 func _process(delta: float) -> void:
 	if _active_state:
@@ -76,6 +104,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _is_action_just_pressed(event, action_special):
 		_request_action(&"special")
+		return
+	if _is_action_just_pressed(event, action_jump):
+		_try_start_jump()
 		return
 
 func _cache_states() -> void:
@@ -174,7 +205,54 @@ func _apply_movement() -> void:
 	if input_direction.length_squared() > 1.0:
 		input_direction = input_direction.normalized()
 
-	velocity = input_direction * move_speed
+	if abs(input_direction.x) > 0.01:
+		_set_sprite_facing(input_direction.x < 0.0)
+
+	var current_speed: float = move_speed
+	if _is_jumping:
+		# Slightly reduce steering during hop to keep jump readable.
+		current_speed *= 0.8
+
+	velocity = input_direction * current_speed
+
+func _set_sprite_facing(facing_left: bool) -> void:
+	_facing_left = facing_left
+	if _guardian_sprite:
+		_guardian_sprite.flip_h = _facing_left
+
+func _try_start_jump() -> void:
+	if _is_jumping:
+		return
+	if _jump_cooldown_remaining > 0.0:
+		return
+	if jump_duration <= 0.01:
+		return
+
+	_is_jumping = true
+	_jump_elapsed = 0.0
+	_jump_cooldown_remaining = jump_cooldown
+
+func _update_jump(delta: float) -> void:
+	if not _guardian_sprite:
+		return
+
+	if not _is_jumping:
+		_guardian_sprite.position = _sprite_base_position
+		_guardian_sprite.scale = Vector2.ONE
+		return
+
+	_jump_elapsed += delta
+	var t: float = clamp(_jump_elapsed / jump_duration, 0.0, 1.0)
+	var arc: float = sin(t * PI)
+
+	_guardian_sprite.position = _sprite_base_position + Vector2(0.0, -arc * jump_height)
+	var stretch: float = 1.0 + (0.08 * arc)
+	_guardian_sprite.scale = Vector2(stretch, stretch)
+
+	if t >= 1.0:
+		_is_jumping = false
+		_guardian_sprite.position = _sprite_base_position
+		_guardian_sprite.scale = Vector2.ONE
 
 func _is_form_locked(form_id: StringName) -> bool:
 	if _game_manager:
@@ -215,9 +293,11 @@ func _on_guardian_animation_finished() -> void:
 		return
 	if not _guardian_sprite.sprite_frames:
 		return
-
-	# Resume locomotion state directly to avoid a one-frame idle pop while moving.
-	_update_locomotion_animation()
+	if _is_action_animation_name(String(_guardian_sprite.animation)):
+		_post_action_idle_remaining = post_action_idle_hold
+		var idle_animation := StringName(String(_active_form).to_lower() + "_idle")
+		if _guardian_sprite.sprite_frames.has_animation(idle_animation):
+			_play_if_changed(idle_animation)
 
 func _update_locomotion_animation() -> void:
 	if not _guardian_sprite:
@@ -225,6 +305,11 @@ func _update_locomotion_animation() -> void:
 	if not _guardian_sprite.sprite_frames:
 		return
 	if _is_action_animation_playing():
+		return
+	if _post_action_idle_remaining > 0.0:
+		var hold_idle_animation := StringName(String(_active_form).to_lower() + "_idle")
+		if _guardian_sprite.sprite_frames.has_animation(hold_idle_animation):
+			_play_if_changed(hold_idle_animation)
 		return
 
 	var form_prefix := String(_active_form).to_lower()
@@ -254,8 +339,9 @@ func _play_if_changed(animation_name: StringName) -> void:
 func _is_action_animation_playing() -> bool:
 	if not _guardian_sprite:
 		return false
+	return _is_action_animation_name(String(_guardian_sprite.animation))
 
-	var current := String(_guardian_sprite.animation)
+func _is_action_animation_name(current: String) -> bool:
 	return (
 		current.ends_with("_attack")
 		or current.ends_with("_attack_2")
