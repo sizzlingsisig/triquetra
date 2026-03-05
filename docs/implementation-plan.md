@@ -1,209 +1,119 @@
-# Triquetra MVP Implementation Plan (Weeks 3–5)
+# Triquetra MVP Implementation Plan
 
-## Scope and Principles
+## 1. Current Baseline
+The following systems already exist in code:
+1. `GameManager` autoload with guardian lock map, pool count, and timeline reset signal.
+2. `PlayerController` with movement, state activation, swap cycling, input buffering, and coyote timing.
+3. Guardian state hierarchy (`BaseGuardianState`, `StateSword`, `StateSpear`, `StateBow`).
+4. Form animation playback routing through `GuardianSprite`.
 
-This plan covers the MVP architecture, combat core, and narrative loop.
+This plan focuses on closing MVP gaps and producing a stable vertical slice.
 
-- Preserve canonical Triquetra counter rules (Spear > Shielded Knight, Sword guard-break/stun, Bow deflect on shield).
-- Keep systems decoupled via signals/events and narrow interfaces.
-- Apply SOLID pragmatically (single-responsibility scripts, explicit dependencies).
-- Avoid overengineering: implement only what the current sprint needs.
+## 2. Phase Plan
 
----
+### Phase 1: Stabilize Core Guardian Loop
+Goal: make current loop robust and observable.
 
-## Week 3: Core Architecture and Soul Link
+Tasks:
+1. Add debug logging or on-screen debug widget for:
+active form, locked forms, buffered action, last reset reason.
+2. Verify lock idempotency across both state and manager paths.
+3. Add explicit reset handling flow after `timeline_reset_requested` (scene reload or run reset routine).
+4. Add guardrails for missing animations with warning output.
 
-### Objective
-Build the foundational runtime architecture: singleton game authority, state-locked guardian FSM, and Pandora fail-state trigger.
+Exit criteria:
+1. No soft lock when active guardian gets locked.
+2. No duplicate lock side effects.
+3. Reset signal always results in visible run restart behavior.
 
-### Deliverables
+### Phase 2: Combat Rule Layer
+Goal: implement deterministic interaction rules.
 
-1. **GameManager Autoload (Singleton)**
-   - Owns run-level state and emits game-level events.
-   - Maintains:
-     - `persistent_flags: Dictionary`
-     - guardian pool status (`Sword`, `Spear`, `Bow` active/locked)
-   - Exposes:
-     - `request_timeline_reset(reason: String)`
-     - guardian lock/update methods
-   - Signals:
-     - `guardian_locked(form_name)`
-     - `guardian_pool_changed(active_count)`
-     - `timeline_reset_requested(reason)`
+Tasks:
+1. Create `scripts/player/combat/combat_resolver.gd`.
+2. Define enums/constants for attack types and enemy traits.
+3. Implement canonical outcomes:
+Spear special defeats shielded knight.
+Sword applies guard-break after threshold.
+Bow is deflected by shield.
+4. Route state actions through combat resolver instead of only animation playback.
+5. Add one enemy prototype script (`shielded_knight.gd`) that consumes resolver outcomes.
 
-2. **State-Locked Player FSM**
-   - `PlayerController` routes input and owns active state.
-   - 3 concrete state nodes:
-     - `State_Sword`
-     - `State_Spear`
-     - `State_Bow`
-   - Lock flow:
-     - lethal damage in state -> emit lock signal
-     - state sets `is_locked = true`
-     - locked states are excluded from swap cycle for remainder of run
+Exit criteria:
+1. Same input/state pair always yields same combat result.
+2. Shielded knight interactions match design rules in all three forms.
 
-3. **Pandora Static Anchor**
-   - Implement as stationary collision trigger volume.
-   - Triggers timeline reset if:
-     - enemy enters Pandora volume, or
-     - GameManager reports guardian pool is empty
+### Phase 3: World Fail-State Integration
+Goal: connect Pandora breach to run reset.
 
-4. **UI Integration (Minimal)**
-   - Reflect guardian lock state and active pool count.
-   - Show reset reason (Pandora breach vs no guardians remaining).
+Tasks:
+1. Create `scripts/world/pandora_trigger.gd` area trigger.
+2. Detect enemy entry and call `GameManager.request_timeline_reset("pandora_breached")`.
+3. Add minimal level wiring in main scene for trigger and enemy pathing toward Pandora.
 
-### Suggested Architecture Boundaries
+Exit criteria:
+1. Enemy entering Pandora always emits timeline reset request with breach reason.
+2. No false positives from player entering the trigger.
 
-- `GameManager`: run state, persistence dictionary, reset orchestration.
-- `PlayerController`: input mapping and state switching only.
-- `BaseGuardianState` + concrete states: per-form action/damage behavior.
-- `PandoraTrigger`: breach detection only.
-- `HUDController`: visual state updates only.
+### Phase 4: HUD and Feedback
+Goal: ensure player can read system state at runtime.
 
-### Acceptance Criteria
+Tasks:
+1. Create `scripts/ui/hud_controller.gd`.
+2. Subscribe to `GameManager.guardian_locked` and `guardian_pool_changed`.
+3. Show active guardian, locked guardian list, and remaining pool count.
+4. Show last reset reason briefly after reset trigger.
 
-- Guardian forms can be switched until locked.
-- A locked form is permanently unavailable for the current run.
-- Enemy breach into Pandora always triggers reset.
-- Empty guardian pool always triggers reset.
-- No cyclic dependencies between manager, FSM, and UI.
+Exit criteria:
+1. Guardian losses are visually obvious.
+2. Reset reason is always visible to player/tester.
 
----
+### Phase 5: Narrative Hook Foundation
+Goal: wire persistent flag usage for loop-aware content.
 
-## Week 4: Combat Trinity and Game Feel
+Tasks:
+1. Add `scripts/narrative/dialogue_priority_manager.gd`.
+2. Define dialogue entry schema (`id`, `priority`, `requirements`, `payload`).
+3. Query `GameManager.persistent_flags` to pick top valid line.
+4. Set baseline flags on run outcomes (for example `last_run_death_reason`).
 
-### Objective
-Implement rock-paper-scissors combat interactions and responsiveness safeguards (input buffering + coyote windows).
+Exit criteria:
+1. Dialogue manager consistently selects highest-priority valid entry.
+2. At least one second-loop line changes based on a previous run flag.
 
-### Deliverables
+## 3. Suggested File Additions
+1. `scripts/player/combat/combat_resolver.gd`
+2. `scripts/enemies/shielded_knight.gd`
+3. `scripts/world/pandora_trigger.gd`
+4. `scripts/ui/hud_controller.gd`
+5. `scripts/narrative/dialogue_priority_manager.gd`
 
-1. **Form Specials + Combat Hooks**
-   - **Spear: Impale**
-     - Forward lunge, piercing hitbox.
-     - Instantly kills Shielded Knight.
-   - **Sword: Parry**
-     - Timed parry window.
-     - Reflects projectiles and stuns melee attackers.
-     - Guard break on shielded enemies after 2 successful sword hits.
-   - **Bow: Disengage**
-     - Backward movement burst.
-     - Spread shot for spacing.
-     - Deflected by shielded enemies.
+## 4. Work Breakdown and Order
+1. Stabilize core guardian loop.
+2. Implement combat resolver and shielded knight.
+3. Integrate Pandora trigger reset path.
+4. Add HUD feedback.
+5. Add dialogue priority manager and persistent-flag updates.
 
-2. **Shielded Knight (Test Enemy)**
-   - Slow advance behavior toward Pandora.
-   - Deterministic responses:
-     - Spear -> instant death
-     - Sword -> 2-hit guard break + stun/vulnerability
-     - Bow -> full deflect (no damage)
+This order minimizes integration risk by finalizing core gameplay contracts before layering world, UI, and narrative systems.
 
-3. **Responsiveness Systems**
-   - Input buffer queue for actions during lockout windows (attack recovery/hit-stun).
-   - Coyote timing for forgiving swap/defense windows.
+## 5. Test Checklist
+1. Swap cycle test:
+`Sword -> Spear -> Bow`, skipping locked forms in both directions.
+2. Lock test:
+lethal hit on each form marks it locked and updates pool count.
+3. Empty pool test:
+locking final guardian triggers `timeline_reset_requested("no_guardians_remaining")`.
+4. Pandora test:
+enemy breach triggers `timeline_reset_requested("pandora_breached")`.
+5. Buffer test:
+queued attack executes once state accepts action.
+6. Coyote test:
+late swap input within window still swaps correctly.
 
-4. **Animation/Hitbox Sync**
-   - Activate hitboxes only during authored active frames.
-   - Trigger animation via state events; avoid embedding combat rules in animation script logic.
-
-### Acceptance Criteria
-
-- All three specials function and are readable in gameplay.
-- Shielded Knight interactions exactly match canonical counter rules.
-- Buffered input executes on first valid frame after lockout.
-- Coyote windows reduce frustration without invalidating risk/reward.
-
----
-
-## Week 5: Priority Queue Dialogue and Boss Prototype
-
-### Objective
-Validate looped narrative interruption with persistent run data and a minimal boss encounter.
-
-### Deliverables
-
-1. **Priority Queue Dialogue Manager**
-   - Evaluates dialogue entries with schema:
-     - `id`, `priority`, `requirements`, `line` (or payload)
-   - Compares `requirements` against `GameManager.persistent_flags`.
-   - Selects highest-priority valid item and dispatches to UI.
-
-2. **Prototype Boss Room**
-   - Single room encounter.
-   - Basic attack cycle only (no advanced AI needed for MVP).
-   - Entry trigger invokes dialogue manager.
-
-3. **Persistent Dictionary Integration**
-   - Update flags on encounter outcomes (`boss_defeated`, `last_run_death`, etc.).
-   - Verify second-loop dialogue interruption based on prior run flags.
-
-4. **Loop Validation Pass**
-   - First run: baseline boss dialogue.
-   - Second run: altered/interrupted monologue when prior conditions are met.
-
-### Acceptance Criteria
-
-- Boss room consistently triggers dialogue on entry.
-- Dialogue manager always selects the correct highest-priority valid line.
-- Encounter outcomes correctly write to persistent dictionary.
-- Second loop reflects previous run state in dialogue behavior.
-
----
-
-## Cross-Week Technical Checklist
-
-- Use signals for cross-system communication.
-- Keep combat resolution in a dedicated resolver/service (not UI/animation/input).
-- Ensure deterministic state transitions and clear lock reasons.
-- Prefer composition over deep inheritance.
-- Keep debug tooling simple:
-  - current state
-  - locked forms
-  - buffered action
-  - last combat resolution
-
----
-
-## Suggested Folder/Script Layout (MVP)
-
-```text
-autoload/
-  game_manager.gd
-
-player/
-  player_controller.gd
-  states/
-    base_guardian_state.gd
-    state_sword.gd
-    state_spear.gd
-    state_bow.gd
-  combat/
-    combat_resolver.gd
-    hitbox.gd
-
-enemies/
-  shielded_knight.gd
-  prototype_boss.gd
-
-world/
-  pandora_trigger.gd
-
-ui/
-  hud_controller.gd
-  dialogue_view.gd
-
-narrative/
-  dialogue_priority_manager.gd
-  dialogue_entry.gd
-```
-
----
-
-## Execution Order (Lowest Risk)
-
-1. Week 3 architecture skeleton and reset loop.
-2. Week 4 Shielded Knight + specials with deterministic combat outcomes.
-3. Week 4 input buffer/coyote timing polish.
-4. Week 5 dialogue priority manager.
-5. Week 5 boss room + persistent-flag loop validation.
-
-This order ensures core fail-state and combat are stable before narrative dependencies are layered on top.
+## 6. Definition of Done (MVP)
+1. Player loop is playable end-to-end with reliable guardian lifecycle.
+2. Canonical trinity combat interactions are implemented and readable.
+3. Both reset paths are active and visible.
+4. HUD communicates guardian state and reset reasons.
+5. Persistent flags are used by at least one loop-aware narrative decision.
