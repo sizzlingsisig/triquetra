@@ -1,6 +1,9 @@
 extends Node
 class_name BaseGuardianState
 
+## Base contract for all guardian forms.
+## Derived states implement form-specific action handling and effects.
+
 signal guardian_locked(form_id: StringName)
 
 @export var form_id: StringName
@@ -12,6 +15,7 @@ var _player: CharacterBody2D
 var _game_manager: Node
 
 func setup(player: CharacterBody2D, game_manager: Node) -> void:
+	# Injects runtime dependencies from PlayerController.
 	_player = player
 	_game_manager = game_manager
 
@@ -28,6 +32,7 @@ func physics_update(_delta: float) -> void:
 	pass
 
 func can_accept_action(_action_name: StringName) -> bool:
+	# Shared gate used by controller command consumption.
 	return (not is_locked) and (not is_busy)
 
 func handle_action(_action_name: StringName) -> bool:
@@ -40,6 +45,7 @@ func receive_lethal_damage() -> void:
 	_lock_guardian_once()
 
 func _lock_guardian_once() -> bool:
+	# Idempotent lock so duplicate lethal events do not double-emit.
 	if is_locked:
 		return false
 	if _game_manager and _game_manager.has_method("is_guardian_locked") and _game_manager.is_guardian_locked(form_id):
@@ -61,14 +67,9 @@ func _play_animation(animation_name: StringName, reset_frame: bool = true) -> vo
 func _has_animation(animation_name: StringName) -> bool:
 	if not _player:
 		return false
-
-	var guardian_sprite := _player.get_node_or_null("GuardianSprite") as AnimatedSprite2D
-	if not guardian_sprite:
-		return false
-	if not guardian_sprite.sprite_frames:
-		return false
-
-	return guardian_sprite.sprite_frames.has_animation(animation_name)
+	if _player.has_method("has_guardian_animation"):
+		return _player.has_guardian_animation(animation_name)
+	return false
 
 func _play_first_available(animation_names: Array[StringName], reset_frame: bool = true) -> bool:
 	for animation_name in animation_names:

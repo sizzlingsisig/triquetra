@@ -1,6 +1,8 @@
 extends "res://scripts/player/states/base_guardian_state.gd"
 class_name StateSword
 
+## Sword form: fast melee combo + defensive block special.
+
 const PRIMARY_ATTACK_ANIMATIONS: Array[StringName] = [
 	&"sword_attack",
 	&"sword_attack2",
@@ -14,6 +16,7 @@ func _ready() -> void:
 	form_id = &"Sword"
 		
 func enter(_previous_form: StringName) -> void:
+	# Reset combo chain each time this form becomes active.
 	_primary_attack_index = 0
 	_play_animation(&"sword_idle")
 	var guardian_sprite: AnimatedSprite2D = _player.get_node_or_null("GuardianSprite") as AnimatedSprite2D
@@ -21,6 +24,7 @@ func enter(_previous_form: StringName) -> void:
 		guardian_sprite.animation_finished.connect(_on_block_animation_finished)
 
 func handle_action(action_name: StringName) -> bool:
+	# Primary rotates through combo clips; special triggers block feedback.
 	if is_locked:
 		return false
 

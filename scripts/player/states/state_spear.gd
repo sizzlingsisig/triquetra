@@ -1,6 +1,8 @@
 extends "res://scripts/player/states/base_guardian_state.gd"
 class_name StateSpear
 
+## Spear form: reach-focused melee combo + impale special.
+
 const PRIMARY_ATTACK_ANIMATIONS: Array[StringName] = [
 	&"spear_attack",
 	&"spear_attack_2"
@@ -16,6 +18,7 @@ func enter(_previous_form: StringName) -> void:
 	_play_animation(&"spear_idle")
 
 func handle_action(action_name: StringName) -> bool:
+	# Special attempts impale and applies brief camera/FX feedback.
 	if is_locked:
 		return false
 
@@ -34,6 +37,7 @@ func handle_action(action_name: StringName) -> bool:
 			return false
 
 func should_open_attack_window(action_name: StringName) -> bool:
+	# Spear special also participates in the melee hit window.
 	if action_name == &"special":
 		return true
 	return action_name == &"primary_attack"

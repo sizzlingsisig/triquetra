@@ -1,6 +1,8 @@
 extends "res://scripts/player/states/base_guardian_state.gd"
 class_name StateBow
 
+## Bow form: ranged primary shots + disengage movement special.
+
 const PRIMARY_ATTACK_ANIMATIONS: Array[StringName] = [
 	&"bow_shot",
 	&"bow_shot_2"
@@ -16,6 +18,7 @@ var _trail_spawn_cooldown: float = 0.0
 @export var slide_trail_interval: float = 0.04
 @export var slide_trail_lifetime: float = 0.12
 @export var slide_trail_alpha: float = 0.5
+@export var arrow_scene: PackedScene
 
 var _disengage_direction: float = 0.0
 
@@ -45,6 +48,7 @@ func handle_action(action_name: StringName) -> bool:
 			return false
 
 func physics_update(delta: float) -> void:
+	# Disengage temporarily overrides horizontal velocity and spawns trail FX.
 	if _disengage_time_remaining <= 0.0:
 		return
 
@@ -68,12 +72,7 @@ func _play_next_primary_attack() -> bool:
 		var animation_name := PRIMARY_ATTACK_ANIMATIONS[_primary_attack_index]
 		_primary_attack_index = (_primary_attack_index + 1) % PRIMARY_ATTACK_ANIMATIONS.size()
 		if _play_first_available([animation_name]):
-			if _player and _player.has_method("spawn_player_arrow_projectile"):
-				var timer: SceneTreeTimer = _player.get_tree().create_timer(0.06)
-				timer.timeout.connect(func() -> void:
-					if _player and _player.has_method("spawn_player_arrow_projectile"):
-						_player.spawn_player_arrow_projectile()
-				)
+			_spawn_arrow_from_state()
 			return true
 
 	return false
@@ -170,4 +169,31 @@ func _spawn_slide_trail_fx() -> void:
 	trail_tween.finished.connect(func() -> void:
 		if is_instance_valid(trail_node):
 			trail_node.queue_free()
+	)
+
+func _spawn_arrow_from_state() -> void:
+	# Spawns projectile scene after a short wind-up to sync with shot animation.
+	if not _player:
+		return
+	if not arrow_scene:
+		return
+
+	var timer: SceneTreeTimer = _player.get_tree().create_timer(0.06)
+	timer.timeout.connect(func() -> void:
+		if not _player:
+			return
+		var arrow: Node = arrow_scene.instantiate()
+		if not arrow:
+			return
+
+		var host: Node = _player.get_parent()
+		if host:
+			host.add_child(arrow)
+		else:
+			_player.add_child(arrow)
+
+		if arrow.has_method("launch"):
+			var direction = _player.get_facing_direction() if _player.has_method("get_facing_direction") else Vector2.RIGHT
+			var spawn_position = _player.get_arrow_spawn_position() if _player.has_method("get_arrow_spawn_position") else _player.global_position
+			arrow.launch(spawn_position, direction)
 	)

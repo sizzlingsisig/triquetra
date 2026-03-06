@@ -1,5 +1,8 @@
 extends Node
 
+## Global run-state service.
+## Tracks which guardian forms are locked and emits timeline reset requests.
+
 signal guardian_locked(form_id: StringName)
 signal guardian_pool_changed(active_count: int)
 signal timeline_reset_requested(reason: StringName)
@@ -18,6 +21,7 @@ func _ready() -> void:
 	reset_run_state()
 
 func reset_run_state() -> void:
+	# Restores all guardian forms for a fresh run.
 	_guardian_lock_map.clear()
 	for form_id in GUARDIAN_FORMS:
 		_guardian_lock_map[form_id] = false
@@ -25,6 +29,7 @@ func reset_run_state() -> void:
 	guardian_pool_changed.emit(get_active_guardian_count())
 
 func lock_guardian(form_id: StringName) -> void:
+	# Locks a form once and broadcasts pool changes.
 	if not _guardian_lock_map.has(form_id):
 		return
 	if _guardian_lock_map[form_id]:
@@ -61,6 +66,7 @@ func get_locked_forms() -> Array[StringName]:
 	return locked_forms
 
 func request_timeline_reset(reason: StringName) -> void:
+	# Stores reason so UI/debug tooling can report why the reset happened.
 	_last_reset_reason = reason
 	timeline_reset_requested.emit(reason)
 

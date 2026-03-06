@@ -1,7 +1,10 @@
 [gd_scene format=3 uid="uid://ch63bo6286f7"]
 
-[ext_resource type="Script" uid="uid://yr10l1tjfxpp" path="res://scripts/player/player_controller.gd" id="1_1d8qn"]
+[ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_1d8qn"]
+[ext_resource type="Script" uid="uid://ctn4vu4xt07od" path="res://scripts/player/components/player_animation_manager.gd" id="1_1fu51"]
+[ext_resource type="Script" uid="uid://oqip088l04fo" path="res://scripts/player/components/player_debug_widget.gd" id="1_ogb84"]
 [ext_resource type="Script" uid="uid://bo648mtmmdcdx" path="res://scripts/player/states/state_sword.gd" id="2_5168u"]
+[ext_resource type="PackedScene" path="res://scenes/player/arrow_projectile.tscn" id="2_cq2fa"]
 [ext_resource type="Texture2D" uid="uid://dbe7rvya0r81b" path="res://assets/skeleton_sprites/Skeleton_Archer/Shot_1.png" id="2_gx1jg"]
 [ext_resource type="Texture2D" uid="uid://dd0yw7s8f3ceq" path="res://assets/skeleton_sprites/Skeleton_Archer/Evasion.png" id="2_ugbui"]
 [ext_resource type="Script" uid="uid://mwq8fuoqfllt" path="res://scripts/player/states/state_spear.gd" id="3_l4tkp"]
@@ -24,9 +27,6 @@
 [ext_resource type="Texture2D" uid="uid://cgcdyf7a81sd" path="res://assets/skeleton_sprites/Skeleton_Warrior/Attack_3.png" id="22_vo27k"]
 [ext_resource type="Texture2D" uid="uid://b263ahh6vp0wi" path="res://assets/skeleton_sprites/Skeleton_Warrior/Dead.png" id="23_genst"]
 [ext_resource type="Texture2D" uid="uid://rr2p3735vmty" path="res://assets/skeleton_sprites/Skeleton_Warrior/Run+attack.png" id="27_ttakn"]
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_cnsyf"]
-load_path = "res://.godot/imported/Arrow.png-9c1a59db1668a815025a52dcbf78f088.ctex"
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_ttakn"]
 atlas = ExtResource("5_4hvnv")
@@ -1105,15 +1105,27 @@ animations = [{
 size = Vector2(15.333332, 48.000008)
 
 [node name="Player" type="CharacterBody2D" unique_id=1971314449]
+position = Vector2(0, 9)
 scale = Vector2(1.5, 1.5)
 script = ExtResource("1_1d8qn")
-player_arrow_texture = SubResource("CompressedTexture2D_cnsyf")
+jump_height = 150.0
+metadata/_edit_group_ = true
 
 [node name="GuardianSprite" type="AnimatedSprite2D" parent="." unique_id=683216106]
 texture_filter = 1
 position = Vector2(53.333336, 277.99976)
 sprite_frames = SubResource("SpriteFrames_5miun")
 animation = &"sword_block"
+
+[node name="AnimationManager" type="Node" parent="." unique_id=1655587179]
+script = ExtResource("1_1fu51")
+
+[node name="PlayerDebugWidget" type="CanvasLayer" parent="." unique_id=667305620]
+script = ExtResource("1_ogb84")
+
+[node name="DebugLabel" type="Label" parent="PlayerDebugWidget" unique_id=1571996444]
+offset_left = 12.0
+offset_top = 12.0
 
 [node name="States" type="Node" parent="." unique_id=139861974]
 
@@ -1125,6 +1137,7 @@ script = ExtResource("3_l4tkp")
 
 [node name="Bow" type="Node" parent="States" unique_id=1832768406]
 script = ExtResource("4_jrhr5")
+arrow_scene = ExtResource("2_cq2fa")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1081547501]
 position = Vector2(56.333336, 312)
