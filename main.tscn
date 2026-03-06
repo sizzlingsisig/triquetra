@@ -2,10 +2,13 @@
 
 [ext_resource type="PackedScene" uid="uid://bqj6umh3fqhcv" path="res://scenes/background.tscn" id="1_0xm2m"]
 [ext_resource type="PackedScene" uid="uid://ch63bo6286f7" path="res://scenes/player/player.tscn" id="1_ig7tw"]
+[ext_resource type="PackedScene" uid="uid://dbu1gub03sjwu" path="res://scenes/enemy/enemy.tscn" id="3_h2yge"]
 
 [node name="Main" type="Node2D" unique_id=518299312]
 
 [node name="Background" parent="." unique_id=2123297796 instance=ExtResource("1_0xm2m")]
+
+[node name="Enemy" parent="." unique_id=882156010 instance=ExtResource("3_h2yge")]
 
 [node name="Player" parent="." unique_id=1971314449 instance=ExtResource("1_ig7tw")]
 move_speed = 250.0

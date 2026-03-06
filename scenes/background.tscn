@@ -521,6 +521,7 @@ sources/0 = SubResource("TileSetAtlasSource_y0upk")
 [node name="Background" type="Node2D" unique_id=2123297796]
 
 [node name="Background" type="Sprite2D" parent="." unique_id=1334824153]
+modulate = Color(0.2994123, 0.14581335, 0.21871227, 1)
 z_index = -10
 position = Vector2(574, 327.5)
 scale = Vector2(2.4041667, 2.3786767)

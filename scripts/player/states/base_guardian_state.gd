@@ -33,14 +33,24 @@ func can_accept_action(_action_name: StringName) -> bool:
 func handle_action(_action_name: StringName) -> bool:
 	return false
 
+func should_open_attack_window(action_name: StringName) -> bool:
+	return action_name == &"primary_attack"
+
 func receive_lethal_damage() -> void:
+	_lock_guardian_once()
+
+func _lock_guardian_once() -> bool:
 	if is_locked:
-		return
+		return false
+	if _game_manager and _game_manager.has_method("is_guardian_locked") and _game_manager.is_guardian_locked(form_id):
+		is_locked = true
+		return false
 
 	is_locked = true
 	if _game_manager:
 		_game_manager.lock_guardian(form_id)
 	guardian_locked.emit(form_id)
+	return true
 
 func _play_animation(animation_name: StringName, reset_frame: bool = true) -> void:
 	if not _player:

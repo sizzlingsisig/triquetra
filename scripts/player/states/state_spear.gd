@@ -32,6 +32,11 @@ func handle_action(action_name: StringName) -> bool:
 			return played
 		_:
 			return false
+
+func should_open_attack_window(action_name: StringName) -> bool:
+	if action_name == &"special":
+		return true
+	return action_name == &"primary_attack"
 func _spawn_impale_fx() -> void:
 	if not _player:
 		return

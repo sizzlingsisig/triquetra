@@ -68,6 +68,12 @@ func _play_next_primary_attack() -> bool:
 		var animation_name := PRIMARY_ATTACK_ANIMATIONS[_primary_attack_index]
 		_primary_attack_index = (_primary_attack_index + 1) % PRIMARY_ATTACK_ANIMATIONS.size()
 		if _play_first_available([animation_name]):
+			if _player and _player.has_method("spawn_player_arrow_projectile"):
+				var timer: SceneTreeTimer = _player.get_tree().create_timer(0.06)
+				timer.timeout.connect(func() -> void:
+					if _player and _player.has_method("spawn_player_arrow_projectile"):
+						_player.spawn_player_arrow_projectile()
+				)
 			return true
 
 	return false

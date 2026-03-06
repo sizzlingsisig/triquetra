@@ -7,9 +7,11 @@
 [ext_resource type="Texture2D" uid="uid://dff1plxxgkkha" path="res://assets/enemy_sprites/Knight_2/Defend.png" id="5_so3kp"]
 [ext_resource type="Texture2D" uid="uid://cx67vpl0gm3fe" path="res://assets/enemy_sprites/Knight_2/Hurt.png" id="6_5woo5"]
 [ext_resource type="Texture2D" uid="uid://b3ipf8n4psih1" path="res://assets/enemy_sprites/Knight_2/Jump.png" id="7_pb0yv"]
+[ext_resource type="Texture2D" uid="uid://cpo3l2d85cemt" path="res://assets/enemy_sprites/Knight_3/Idle.png" id="7_peoo5"]
 [ext_resource type="Texture2D" uid="uid://clc3708ckikp5" path="res://assets/enemy_sprites/Knight_2/Protect.png" id="8_prup0"]
 [ext_resource type="Texture2D" uid="uid://xwqqcwit1aht" path="res://assets/enemy_sprites/Knight_2/Run.png" id="9_dxjon"]
 [ext_resource type="Texture2D" uid="uid://dva4su7qs55wb" path="res://assets/enemy_sprites/Knight_2/Run+Attack.png" id="10_f5q6l"]
+[ext_resource type="Script" uid="uid://dk0pk2kqqfcsk" path="res://scripts/enemy/enemy.gd" id="enemy_script"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_8ed2q"]
 atlas = ExtResource("1_hvxgb")
@@ -114,6 +116,22 @@ region = Rect2(0, 0, 128, 128)
 [sub_resource type="AtlasTexture" id="AtlasTexture_ktajj"]
 atlas = ExtResource("6_5woo5")
 region = Rect2(128, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2f3il"]
+atlas = ExtResource("7_peoo5")
+region = Rect2(0, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dtxhd"]
+atlas = ExtResource("7_peoo5")
+region = Rect2(128, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_so3kp"]
+atlas = ExtResource("7_peoo5")
+region = Rect2(256, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5woo5"]
+atlas = ExtResource("7_peoo5")
+region = Rect2(384, 0, 128, 128)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_rxusm"]
 atlas = ExtResource("7_pb0yv")
@@ -307,6 +325,23 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_2f3il")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dtxhd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_so3kp")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5woo5")
+}],
+"loop": true,
+"name": &"knight_idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_rxusm")
 }, {
 "duration": 1.0,
@@ -386,8 +421,48 @@ animations = [{
 "speed": 5.0
 }]
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_peoo5"]
+size = Vector2(27, 78)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_enemy_attack"]
+size = Vector2(56, 42)
+
 [node name="Enemy" type="CharacterBody2D" unique_id=882156010]
+script = ExtResource("enemy_script")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1605494767]
+texture_filter = 1
+position = Vector2(955, 417)
+scale = Vector2(1.5, 1.5)
 sprite_frames = SubResource("SpriteFrames_10cgr")
-animation = &"knight_attack3"
+animation = &"knight_idle"
+autoplay = "knight_idle"
+flip_h = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1694778899]
+position = Vector2(1003.5, 462)
+shape = SubResource("RectangleShape2D_peoo5")
+
+[node name="AttackHitbox" type="Area2D" parent="." unique_id=2000000000]
+position = Vector2(1003.5, 462)
+collision_layer = 8
+collision_mask = 36
+
+[node name="AttackCollisionShape2D" type="CollisionShape2D" parent="AttackHitbox" unique_id=2000000001]
+shape = SubResource("RectangleShape2D_peoo5")
+
+[node name="EnemyAttackArea" type="Area2D" parent="." unique_id=2000000004]
+position = Vector2(972, 440)
+collision_layer = 16
+monitoring = false
+
+[node name="EnemyAttackCollisionShape2D" type="CollisionShape2D" parent="EnemyAttackArea" unique_id=2000000005]
+shape = SubResource("RectangleShape2D_enemy_attack")
+
+[node name="AttackTimer" type="Timer" parent="." unique_id=2000000006]
+wait_time = 1.6
+
+[connection signal="area_entered" from="AttackHitbox" to="." method="_on_attack_hitbox_area_entered"]
+[connection signal="body_entered" from="AttackHitbox" to="." method="_on_attack_hitbox_body_entered"]
+[connection signal="body_entered" from="EnemyAttackArea" to="." method="_on_enemy_attack_area_body_entered"]
+[connection signal="timeout" from="AttackTimer" to="." method="_on_attack_timer_timeout"]

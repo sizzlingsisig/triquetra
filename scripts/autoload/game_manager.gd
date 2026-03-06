@@ -12,6 +12,7 @@ const GUARDIAN_FORMS: Array[StringName] = [
 
 var persistent_flags: Dictionary = {}
 var _guardian_lock_map: Dictionary = {}
+var _last_reset_reason: StringName = &""
 
 func _ready() -> void:
 	reset_run_state()
@@ -20,6 +21,7 @@ func reset_run_state() -> void:
 	_guardian_lock_map.clear()
 	for form_id in GUARDIAN_FORMS:
 		_guardian_lock_map[form_id] = false
+	_last_reset_reason = &""
 	guardian_pool_changed.emit(get_active_guardian_count())
 
 func lock_guardian(form_id: StringName) -> void:
@@ -51,8 +53,19 @@ func get_active_guardian_count() -> int:
 			count += 1
 	return count
 
+func get_locked_forms() -> Array[StringName]:
+	var locked_forms: Array[StringName] = []
+	for form_id in GUARDIAN_FORMS:
+		if is_guardian_locked(form_id):
+			locked_forms.append(form_id)
+	return locked_forms
+
 func request_timeline_reset(reason: StringName) -> void:
+	_last_reset_reason = reason
 	timeline_reset_requested.emit(reason)
+
+func get_last_reset_reason() -> StringName:
+	return _last_reset_reason
 
 func set_persistent_flag(key: StringName, value: Variant) -> void:
 	persistent_flags[key] = value
