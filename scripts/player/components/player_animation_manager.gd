@@ -103,10 +103,12 @@ func _rebuild_attack_window_tracks() -> void:
 	if not _attack_timeline_player:
 		return
 
-	var default_library := _attack_timeline_player.get_animation_library("")
-	if not default_library:
+	var default_library: AnimationLibrary
+	if _attack_timeline_player.has_animation_library(&""):
+		default_library = _attack_timeline_player.get_animation_library(&"")
+	else:
 		default_library = AnimationLibrary.new()
-		_attack_timeline_player.add_animation_library("", default_library)
+		_attack_timeline_player.add_animation_library(&"", default_library)
 
 	for animation_name in attack_window_table.keys():
 		var name: StringName = animation_name

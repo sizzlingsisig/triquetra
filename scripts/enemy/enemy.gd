@@ -15,7 +15,6 @@ const ATTACK_ANIMATIONS: Array[StringName] = [
 ]
 
 @onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
-@onready var _player_hitbox: Area2D = $AttackHitbox
 @onready var _enemy_attack_area: Area2D = $EnemyAttackArea
 @onready var _attack_timer: Timer = $AttackTimer
 @onready var _projectile_spawn: Node2D = get_node_or_null("ProjectileSpawn")

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://ch63bo6286f7"]
 
-[ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_1d8qn"]
+[ext_resource type="Script" uid="uid://yr10l1tjfxpp" path="res://scripts/player/player_controller.gd" id="1_1d8qn"]
 [ext_resource type="Script" uid="uid://ctn4vu4xt07od" path="res://scripts/player/components/player_animation_manager.gd" id="1_1fu51"]
 [ext_resource type="Script" uid="uid://oqip088l04fo" path="res://scripts/player/components/player_debug_widget.gd" id="1_ogb84"]
 [ext_resource type="Script" uid="uid://bo648mtmmdcdx" path="res://scripts/player/states/state_sword.gd" id="2_5168u"]
