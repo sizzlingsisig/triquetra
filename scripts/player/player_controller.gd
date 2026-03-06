@@ -24,8 +24,6 @@ signal form_locked(form_id: StringName)
 
 @export var action_move_left: StringName = &"ui_left"
 @export var action_move_right: StringName = &"ui_right"
-@export var action_move_up: StringName = &"ui_up"
-@export var action_move_down: StringName = &"ui_down"
 @export var action_attack: StringName = &"attack"
 @export var action_special: StringName = &"special"
 @export var action_jump: StringName = &"jump"
@@ -331,7 +329,6 @@ func _apply_movement() -> void:
 	# Top-down style directional movement with normalized diagonals.
 	var input_direction := Vector2.ZERO
 	input_direction.x = Input.get_axis(action_move_left, action_move_right)
-	input_direction.y = Input.get_axis(action_move_up, action_move_down)
 
 	if input_direction.length_squared() > 1.0:
 		input_direction = input_direction.normalized()
