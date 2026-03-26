@@ -118,6 +118,9 @@ func connect_attack_window(callback: Callable) -> void:
 	if _animation_manager and _animation_manager.has_signal("attack_window_toggled"):
 		_animation_manager.attack_window_toggled.connect(callback)
 
+func get_facing_left() -> bool:
+	return _facing_left
+
 func _animation_manager_has(method_name: StringName) -> bool:
 	return _animation_manager != null and _animation_manager.has_method(method_name)
 

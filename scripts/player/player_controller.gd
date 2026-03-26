@@ -51,6 +51,7 @@ const COMMAND_JUMP: StringName = &"jump"
 
 var _visuals_manager = null
 var _input_manager = null
+var _combat_manager = null
 
 var _states: Dictionary = {}
 var _active_form: StringName = &"Sword"
@@ -64,12 +65,10 @@ var _jump_elapsed: float = 0.0
 var _jump_cooldown_remaining: float = 0.0
 var _sprite_base_position: Vector2 = Vector2.ZERO
 var _body_collision_base_position: Vector2 = Vector2.ZERO
-var _attack_area_base_position: Vector2 = Vector2.ZERO
 var _current_jump_offset: Vector2 = Vector2.ZERO
 var _facing_left: bool = false
-var _last_reset_reason: StringName = &""
 var _lock_event_processed: Dictionary = {}
-var _attack_window_hit_ids: Dictionary = {}
+var _last_reset_reason: StringName = &""
 
 func _animation_manager_has(method_name: StringName) -> bool:
 	return _animation_manager != null and _animation_manager.has_method(method_name)
@@ -98,7 +97,13 @@ func _ready() -> void:
 	_visuals_manager.jump_height = jump_height
 	_visuals_manager.jump_duration = jump_duration
 	_visuals_manager.set_facing_left(_facing_left)
-	_visuals_manager.connect_attack_window(_set_attack_area_active)
+	
+	# Initialize CombatManager
+	var CombatManagerScript := load("res://scripts/player/combat_manager.gd")
+	_combat_manager = CombatManagerScript.new()
+	add_child(_combat_manager)
+	_combat_manager.setup(self, _attack_area, _visuals_manager)
+	_visuals_manager.connect_attack_window(_on_attack_window_toggled)
 	
 	# Initialize InputManager
 	var InputManagerScript := load("res://scripts/player/input_manager.gd")
@@ -121,9 +126,17 @@ func _ready() -> void:
 	_connect_state_signals()
 	_initialize_state_contexts()
 	_sync_state_locks_from_manager()
-	_set_attack_area_active(false)
+	if _combat_manager:
+		_combat_manager.set_attack_area_active(false, _facing_left)
 	_activate_first_available_state()
 	_setup_debug_widget()
+
+func _on_attack_window_toggled(is_active: bool) -> void:
+	if _combat_manager and _visuals_manager:
+		var facing_left: bool = false
+		if _visuals_manager.has_method("get_facing_left"):
+			facing_left = _visuals_manager.get_facing_left()
+		_combat_manager.set_attack_area_active(is_active, facing_left)
 
 func _physics_process(delta: float) -> void:
 	_apply_movement()
@@ -145,7 +158,8 @@ func _physics_process(delta: float) -> void:
 	if _jump_cooldown_remaining > 0.0:
 		_jump_cooldown_remaining -= delta
 
-	_apply_attack_overlap_hits()
+	if _combat_manager:
+		_combat_manager.apply_hit_detection(_active_form)
 	_apply_jump_offset_to_nodes()
 
 func _process(delta: float) -> void:
@@ -253,49 +267,12 @@ func _request_action(action_name: StringName) -> bool:
 		return false
 	return _active_state.handle_action(action_name)
 
-func _set_attack_area_active(is_active: bool) -> void:
-	# Attack area follows facing direction and current jump arc offset.
-	if not _attack_area:
-		return
-	_attack_area.monitoring = is_active
-	_attack_area.monitorable = is_active
-	if is_active:
-		_attack_window_hit_ids.clear()
-		var forward_sign := -1.0 if _facing_left else 1.0
-		_attack_area.position = _attack_area_base_position + Vector2(24.0 * forward_sign, 0.0) + _current_jump_offset
-	else:
-		_attack_area.position = _attack_area_base_position + _current_jump_offset
-
-func _apply_attack_overlap_hits() -> void:
-	# Prevent multiple hits on the same enemy within one active attack window.
-	if not _attack_area:
-		return
-	if not _attack_area.monitoring:
-		return
-
-	for overlap in _attack_area.get_overlapping_areas():
-		if not overlap:
-			continue
-		if overlap.name != "AttackHitbox":
-			continue
-
-		var enemy_node: Node = overlap.get_parent()
-		if not enemy_node:
-			continue
-
-		var enemy_id := enemy_node.get_instance_id()
-		if _attack_window_hit_ids.get(enemy_id, false):
-			continue
-		_attack_window_hit_ids[enemy_id] = true
-
-		if enemy_node.has_method("receive_player_hit"):
-			enemy_node.receive_player_hit(_active_form)
-
 func receive_enemy_hit() -> void:
-	if not _active_state:
-		return
-	if _active_state.has_method("receive_lethal_damage"):
-		_active_state.receive_lethal_damage()
+	if _combat_manager:
+		_combat_manager.receive_enemy_hit(_active_state)
+	elif _active_state:
+		if _active_state.has_method("receive_lethal_damage"):
+			_active_state.receive_lethal_damage()
 
 func _apply_movement() -> void:
 	# Top-down style directional movement with normalized diagonals.
@@ -446,6 +423,8 @@ func _reset_run_flow() -> void:
 	_reset_lock_event_tracking()
 	if _visuals_manager:
 		_visuals_manager.reset()
+	if _combat_manager:
+		_combat_manager.reset()
 	_reload_current_scene()
 
 func _reload_current_scene() -> void:
