@@ -83,5 +83,16 @@ func reset() -> void:
 		_attack_area.monitoring = false
 		_attack_area.monitorable = false
 
+func update_jump_offset(jump_offset: Vector2, facing_left: bool) -> void:
+	if not _attack_area:
+		return
+	
+	var base_pos: Vector2 = _attack_area_base_position
+	if _attack_area.monitoring:
+		var forward_sign: float = -1.0 if facing_left else 1.0
+		base_pos = _attack_area_base_position + Vector2(attack_area_forward_offset * forward_sign, 0.0)
+	
+	_attack_area.position = base_pos + jump_offset
+
 func get_attack_area() -> Area2D:
 	return _attack_area

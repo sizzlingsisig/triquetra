@@ -52,10 +52,8 @@ const COMMAND_JUMP: StringName = &"jump"
 var _visuals_manager = null
 var _input_manager = null
 var _combat_manager = null
+var _form_manager = null
 
-var _states: Dictionary = {}
-var _active_form: StringName = &"Sword"
-var _active_state: Node
 var _game_manager: Node
 
 # Buffered commands are consumed during physics ticks so states can gate execution.
@@ -67,7 +65,6 @@ var _sprite_base_position: Vector2 = Vector2.ZERO
 var _body_collision_base_position: Vector2 = Vector2.ZERO
 var _current_jump_offset: Vector2 = Vector2.ZERO
 var _facing_left: bool = false
-var _lock_event_processed: Dictionary = {}
 var _last_reset_reason: StringName = &""
 
 func _animation_manager_has(method_name: StringName) -> bool:
@@ -86,8 +83,6 @@ func shake_camera(intensity: float = 8.0, duration: float = 0.15) -> void:
 func _ready() -> void:
 	# Cache dependencies and initial local offsets before runtime updates begin.
 	_game_manager = get_node_or_null("/root/GameManager")
-	_reset_lock_event_tracking()
-	_connect_game_manager_signals()
 	
 	# Initialize VisualsManager
 	var VisualsManagerScript := load("res://scripts/player/visuals_manager.gd")
@@ -119,16 +114,21 @@ func _ready() -> void:
 	_input_manager.action_swap_next = action_swap_next
 	_input_manager.action_swap_prev = action_swap_prev
 	
-	if _animation_manager:
-		_animation_manager_call(&"set_form", [_active_form])
+	# Initialize FormManager
+	var FormManagerScript := load("res://scripts/player/form_manager.gd")
+	_form_manager = FormManagerScript.new()
+	add_child(_form_manager)
+	_form_manager.setup(self, _game_manager, _states_root, _visuals_manager)
+	_form_manager.set_initial_form(&"Sword")
+	if _form_manager.has_signal("form_changed"):
+		_form_manager.form_changed.connect(func(id): form_changed.emit(id))
+	if _form_manager.has_signal("form_locked"):
+		_form_manager.form_locked.connect(func(id): form_locked.emit(id))
 	
-	_cache_states()
-	_connect_state_signals()
-	_initialize_state_contexts()
-	_sync_state_locks_from_manager()
+	# Set initial attack area state
 	if _combat_manager:
 		_combat_manager.set_attack_area_active(false, _facing_left)
-	_activate_first_available_state()
+	
 	_setup_debug_widget()
 
 func _on_attack_window_toggled(is_active: bool) -> void:
@@ -143,8 +143,11 @@ func _physics_process(delta: float) -> void:
 	if _input_manager:
 		_input_manager.consume_command_buffer(delta)
 
-	if _active_state:
-		_active_state.physics_update(delta)
+	if _input_manager:
+		_input_manager.consume_command_buffer(delta)
+
+	if _form_manager:
+		_form_manager.physics_update(delta)
 
 	if _visuals_manager:
 		_visuals_manager.update_jump(delta)
@@ -159,120 +162,37 @@ func _physics_process(delta: float) -> void:
 		_jump_cooldown_remaining -= delta
 
 	if _combat_manager:
-		_combat_manager.apply_hit_detection(_active_form)
+		_combat_manager.apply_hit_detection(_form_manager.get_active_form_id())
 	_apply_jump_offset_to_nodes()
 
 func _process(delta: float) -> void:
-	if _active_state:
-		_active_state.update(delta)
+	if _form_manager:
+		_form_manager.update(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _input_manager:
 		_input_manager._unhandled_input(event)
 
-func _cache_states() -> void:
-	for child in _states_root.get_children():
-		if child.has_method("setup") and child.has_method("receive_lethal_damage"):
-			var state: Node = child
-			_states[state.form_id] = state
-
-func _connect_state_signals() -> void:
-	for state in _states.values():
-		var guardian_state: Node = state
-		guardian_state.guardian_locked.connect(_on_guardian_locked)
-
-func _connect_game_manager_signals() -> void:
-	if not _game_manager:
-		return
-	if _game_manager.has_signal("guardian_locked") and not _game_manager.guardian_locked.is_connected(_on_manager_guardian_locked):
-		_game_manager.guardian_locked.connect(_on_manager_guardian_locked)
-	if _game_manager.has_signal("timeline_reset_requested") and not _game_manager.timeline_reset_requested.is_connected(_on_timeline_reset_requested):
-		_game_manager.timeline_reset_requested.connect(_on_timeline_reset_requested)
-
-func _initialize_state_contexts() -> void:
-	for state in _states.values():
-		(state as Node).setup(self, _game_manager)
-
-func _activate_first_available_state() -> void:
-	for form_id in FORM_ORDER:
-		if not _is_form_locked(form_id):
-			_set_active_form(form_id)
-			return
-
-	if _game_manager:
-		_game_manager.request_timeline_reset(&"no_guardians_remaining")
-
-func _set_active_form(next_form: StringName) -> void:
-	# States own form-specific behavior. Controller only manages transitions.
-	if not _states.has(next_form):
-		return
-	if _is_form_locked(next_form):
-		_log_debug("Skipped activating locked form: %s" % String(next_form))
-		return
-
-	var previous_form := _active_form
-	if _active_state:
-		_active_state.exit(next_form)
-
-	_active_form = next_form
-	_active_state = _states[next_form] as Node
-	_active_state.enter(previous_form)
-	form_changed.emit(_active_form)
-	_log_debug("Active form changed: %s -> %s" % [String(previous_form), String(_active_form)])
-
-	if _visuals_manager:
-		_visuals_manager.set_form(_active_form)
-
-func _request_swap(direction: int) -> void:
-	if FORM_ORDER.is_empty():
-		return
-
-	_swap_coyote_remaining = coyote_time_window
-	var start_index := FORM_ORDER.find(_active_form)
-	if start_index < 0:
-		start_index = 0
-
-	for step in range(1, FORM_ORDER.size() + 1):
-		var idx := (start_index + (direction * step) + FORM_ORDER.size()) % FORM_ORDER.size()
-		var candidate := FORM_ORDER[idx]
-		if not _is_form_locked(candidate):
-			_set_active_form(candidate)
-			return
-
-	if _game_manager:
-		_game_manager.request_timeline_reset(&"no_guardians_remaining")
-
 func _create_action_callback() -> Callable:
 	return func(command_id: StringName) -> bool:
+		if not _form_manager:
+			return false
 		match command_id:
 			&"swap_next":
-				_request_swap(+1)
-				return true
+				return _form_manager.request_swap(+1)
 			&"swap_prev":
-				_request_swap(-1)
-				return true
+				return _form_manager.request_swap(-1)
 			&"jump":
 				return _try_start_jump()
 			&"primary_attack":
-				return _request_action(&"primary_attack")
+				return _form_manager.handle_action(&"primary_attack")
 			&"special":
-				return _request_action(&"special")
+				return _form_manager.handle_action(&"special")
 		return false
-
-func _request_action(action_name: StringName) -> bool:
-	# Active state decides if/when an action is accepted.
-	if not _active_state:
-		return false
-	if not _active_state.can_accept_action(action_name):
-		return false
-	return _active_state.handle_action(action_name)
 
 func receive_enemy_hit() -> void:
-	if _combat_manager:
-		_combat_manager.receive_enemy_hit(_active_state)
-	elif _active_state:
-		if _active_state.has_method("receive_lethal_damage"):
-			_active_state.receive_lethal_damage()
+	if _form_manager:
+		_form_manager.receive_lethal_damage()
 
 func _apply_movement() -> void:
 	# Top-down style directional movement with normalized diagonals.
@@ -338,46 +258,14 @@ func _update_jump(delta: float) -> void:
 		_guardian_sprite.scale = Vector2.ONE
 
 func _apply_jump_offset_to_nodes() -> void:
-	# Keep sprite, body collision, and attack area aligned during jump arc.
+	# Keep sprite, body collision aligned during jump arc.
+	# Attack area is now managed by CombatManager.
 	if _guardian_sprite:
 		_guardian_sprite.position = _sprite_base_position + _current_jump_offset
 	if _body_collision_shape:
 		_body_collision_shape.position = _body_collision_base_position + _current_jump_offset
-	if _attack_area:
-		var attack_forward := Vector2.ZERO
-		if _attack_area.monitoring:
-			attack_forward.x = -24.0 if _facing_left else 24.0
-		_attack_area.position = _attack_area_base_position + attack_forward + _current_jump_offset
-
-func _is_form_locked(form_id: StringName) -> bool:
-	if _game_manager:
-		return _game_manager.is_guardian_locked(form_id)
-	if _states.has(form_id):
-		return (_states[form_id] as Node).is_locked
-	return true
-
-func _on_guardian_locked(form_id: StringName) -> void:
-	if _game_manager and _game_manager.has_method("lock_guardian"):
-		_game_manager.lock_guardian(form_id)
-	_handle_guardian_locked(form_id, &"state")
-
-func _on_manager_guardian_locked(form_id: StringName) -> void:
-	_handle_guardian_locked(form_id, &"manager")
-
-func _handle_guardian_locked(form_id: StringName, source: StringName) -> void:
-	# If current form gets locked, immediately rotate to the next available guardian.
-	if _states.has(form_id):
-		(_states[form_id] as Node).is_locked = true
-
-	if _lock_event_processed.get(form_id, false):
-		return
-
-	_lock_event_processed[form_id] = true
-	form_locked.emit(form_id)
-	_log_debug("Guardian locked (%s): %s" % [String(source), String(form_id)])
-
-	if form_id == _active_form:
-		_request_swap(+1)
+	if _combat_manager:
+		_combat_manager.update_jump_offset(_current_jump_offset, _facing_left)
 
 func _is_action_just_pressed(event: InputEvent, action_name: StringName) -> bool:
 	if action_name.is_empty():
@@ -420,7 +308,8 @@ func _reset_run_flow() -> void:
 	_jump_elapsed = 0.0
 	_jump_cooldown_remaining = 0.0
 	_current_jump_offset = Vector2.ZERO
-	_reset_lock_event_tracking()
+	if _form_manager:
+		_form_manager.reset()
 	if _visuals_manager:
 		_visuals_manager.reset()
 	if _combat_manager:
@@ -436,11 +325,6 @@ func _reload_current_scene() -> void:
 		return
 	tree.reload_current_scene()
 
-func _reset_lock_event_tracking() -> void:
-	_lock_event_processed.clear()
-	for form_id in FORM_ORDER:
-		_lock_event_processed[form_id] = false
-
 func _setup_debug_widget() -> void:
 	if not show_debug_widget:
 		if _debug_widget:
@@ -454,20 +338,15 @@ func _setup_debug_widget() -> void:
 	if _debug_widget.has_method("setup"):
 		_debug_widget.call("setup", self, _game_manager)
 
-func _sync_state_locks_from_manager() -> void:
-	if not _game_manager:
-		return
-	for form_id in FORM_ORDER:
-		if _states.has(form_id):
-			(_states[form_id] as Node).is_locked = _game_manager.is_guardian_locked(form_id)
-
 func _log_debug(message: String) -> void:
 	if not debug_log_events:
 		return
 	print("[PlayerController] %s" % message)
 
 func get_active_form_id() -> StringName:
-	return _active_form
+	if _form_manager:
+		return _form_manager.get_active_form_id()
+	return &"Sword"
 
 func get_buffered_command_for_debug() -> String:
 	if _input_manager:
@@ -481,16 +360,9 @@ func get_last_reset_reason_for_debug() -> String:
 	return String(_last_reset_reason)
 
 func get_locked_forms_for_debug() -> PackedStringArray:
-	var locked: PackedStringArray = []
-	if _game_manager and _game_manager.has_method("get_locked_forms"):
-		for form_id in _game_manager.get_locked_forms():
-			locked.append(String(form_id))
-		return locked
-
-	for form_id in FORM_ORDER:
-		if _states.has(form_id) and (_states[form_id] as Node).is_locked:
-			locked.append(String(form_id))
-	return locked
+	if _form_manager:
+		return _form_manager.get_locked_forms()
+	return PackedStringArray()
 
 func get_facing_direction() -> Vector2:
 	# Shared utility for states/components (for example bow projectile spawn direction).
