@@ -49,6 +49,8 @@ const COMMAND_JUMP: StringName = &"jump"
 @onready var _animation_manager: Node = get_node_or_null("AnimationManager")
 @onready var _debug_widget: Node = get_node_or_null("PlayerDebugWidget")
 
+var _visuals_manager = null
+
 var _states: Dictionary = {}
 var _active_form: StringName = &"Sword"
 var _active_state: Node
@@ -69,8 +71,6 @@ var _last_reset_reason: StringName = &""
 var _lock_event_processed: Dictionary = {}
 var _attack_window_hit_ids: Dictionary = {}
 
-@onready var _camera: Camera2D = get_node_or_null("Camera2D")
-
 func _animation_manager_has(method_name: StringName) -> bool:
 	return _animation_manager != null and _animation_manager.has_method(method_name)
 
@@ -81,34 +81,28 @@ func _animation_manager_call(method_name: StringName, args: Array = []) -> Varia
 	return _animation_manager.callv(method_name, args)
 
 func shake_camera(intensity: float = 8.0, duration: float = 0.15) -> void:
-	if _camera:
-		var tween := create_tween()
-		var original_offset := _camera.offset
-		tween.tween_property(_camera, "offset", Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity)), duration)
-		tween.tween_property(_camera, "offset", original_offset, duration)
+	if _visuals_manager:
+		_visuals_manager.shake_camera(intensity, duration)
 
 func _ready() -> void:
 	# Cache dependencies and initial local offsets before runtime updates begin.
 	_game_manager = get_node_or_null("/root/GameManager")
 	_reset_lock_event_tracking()
 	_connect_game_manager_signals()
-
-	if _guardian_sprite:
-		_sprite_base_position = _guardian_sprite.position
-		_guardian_sprite.flip_h = _facing_left
-	if _body_collision_shape:
-		_body_collision_base_position = _body_collision_shape.position
-	if _attack_area:
-		_attack_area_base_position = _attack_area.position
-
+	
+	# Initialize VisualsManager
+	var VisualsManagerScript := load("res://scripts/player/visuals_manager.gd")
+	_visuals_manager = VisualsManagerScript.new()
+	add_child(_visuals_manager)
+	_visuals_manager.setup(self, _guardian_sprite, _animation_manager)
+	_visuals_manager.jump_height = jump_height
+	_visuals_manager.jump_duration = jump_duration
+	_visuals_manager.set_facing_left(_facing_left)
+	_visuals_manager.connect_attack_window(_set_attack_area_active)
+	
 	if _animation_manager:
-		# Optional component API calls are guarded to avoid hard coupling.
-		_animation_manager_call(&"setup", [self, _guardian_sprite])
 		_animation_manager_call(&"set_form", [_active_form])
-		_animation_manager_call(&"set_facing_left", [_facing_left])
-		if _animation_manager.has_signal("attack_window_toggled") and not _animation_manager.attack_window_toggled.is_connected(_set_attack_area_active):
-			_animation_manager.attack_window_toggled.connect(_set_attack_area_active)
-
+	
 	_cache_states()
 	_connect_state_signals()
 	_initialize_state_contexts()
@@ -125,9 +119,9 @@ func _physics_process(delta: float) -> void:
 	if _active_state:
 		_active_state.physics_update(delta)
 
-	_update_jump(delta)
-	if _animation_manager:
-		_animation_manager_call(&"update_locomotion", [velocity, delta])
+	if _visuals_manager:
+		_visuals_manager.update_jump(delta)
+		_visuals_manager.update_locomotion(velocity, delta)
 
 	move_and_slide()
 
@@ -138,6 +132,7 @@ func _physics_process(delta: float) -> void:
 		_jump_cooldown_remaining -= delta
 
 	_apply_attack_overlap_hits()
+	_apply_jump_offset_to_nodes()
 
 func _process(delta: float) -> void:
 	if _active_state:
@@ -211,8 +206,8 @@ func _set_active_form(next_form: StringName) -> void:
 	form_changed.emit(_active_form)
 	_log_debug("Active form changed: %s -> %s" % [String(previous_form), String(_active_form)])
 
-	if _animation_manager:
-		_animation_manager_call(&"set_form", [_active_form])
+	if _visuals_manager:
+		_visuals_manager.set_form(_active_form)
 
 func _request_swap(direction: int) -> void:
 	if FORM_ORDER.is_empty():
@@ -350,8 +345,8 @@ func _apply_movement() -> void:
 
 func _set_sprite_facing(facing_left: bool) -> void:
 	_facing_left = facing_left
-	if _animation_manager:
-		_animation_manager_call(&"set_facing_left", [_facing_left])
+	if _visuals_manager:
+		_visuals_manager.set_facing_left(facing_left)
 	elif _guardian_sprite:
 		_guardian_sprite.flip_h = _facing_left
 
@@ -444,16 +439,16 @@ func _is_action_just_pressed(event: InputEvent, action_name: StringName) -> bool
 	return event.is_action_pressed(action_name)
 
 func play_guardian_animation(animation_name: StringName, reset_frame: bool = true) -> void:
-	if _animation_manager_has(&"play"):
-		var played_variant: Variant = _animation_manager_call(&"play", [animation_name, reset_frame])
-		if played_variant is bool and played_variant:
-			return
+	if _visuals_manager and _visuals_manager.play_animation(animation_name, reset_frame):
+		return
 	if _guardian_sprite and _guardian_sprite.sprite_frames and _guardian_sprite.sprite_frames.has_animation(animation_name):
 		_guardian_sprite.play(animation_name)
 		if reset_frame:
 			_guardian_sprite.frame = 0
 
 func has_guardian_animation(animation_name: StringName) -> bool:
+	if _visuals_manager:
+		return _visuals_manager.has_animation(animation_name)
 	if not _guardian_sprite:
 		return false
 	if not _guardian_sprite.sprite_frames:
@@ -477,6 +472,8 @@ func _reset_run_flow() -> void:
 	_jump_cooldown_remaining = 0.0
 	_current_jump_offset = Vector2.ZERO
 	_reset_lock_event_tracking()
+	if _visuals_manager:
+		_visuals_manager.reset()
 	_reload_current_scene()
 
 func _reload_current_scene() -> void:
@@ -546,7 +543,11 @@ func get_facing_direction() -> Vector2:
 	return Vector2.LEFT if _facing_left else Vector2.RIGHT
 
 func get_arrow_spawn_position() -> Vector2:
+	var direction: Vector2 = get_facing_direction()
+	if _visuals_manager:
+		var sprite_pos: Vector2 = _visuals_manager.get_sprite_global_position()
+		var jump_offset: Vector2 = _visuals_manager.get_jump_offset()
+		return sprite_pos + Vector2(direction.x * 20.0, -8.0 + jump_offset.y)
 	if not _guardian_sprite:
 		return global_position
-	var direction := get_facing_direction()
 	return _guardian_sprite.global_position + Vector2(direction.x * 20.0, -8.0 + _current_jump_offset.y)
