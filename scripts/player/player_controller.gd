@@ -323,7 +323,13 @@ func _apply_attack_overlap_hits() -> void:
 		_attack_window_hit_ids[enemy_id] = true
 
 		if enemy_node.has_method("receive_player_hit"):
-			enemy_node.receive_player_hit()
+			enemy_node.receive_player_hit(_active_form)
+
+func receive_enemy_hit() -> void:
+	if not _active_state:
+		return
+	if _active_state.has_method("receive_lethal_damage"):
+		_active_state.receive_lethal_damage()
 
 func _apply_movement() -> void:
 	# Top-down style directional movement with normalized diagonals.
