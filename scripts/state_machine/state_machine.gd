@@ -37,6 +37,8 @@ func _initialize_states() -> void:
 func add_state(id: StringName, state: BaseState) -> void:
 	state.state_machine = self
 	state.owner_node = _owner
+	state.name = String(id)
+	add_child(state)
 	_states[id] = state
 	if state.has_method(&"_state_added"):
 		state._state_added(id)

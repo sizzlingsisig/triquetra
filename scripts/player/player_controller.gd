@@ -46,7 +46,6 @@ const COMMAND_JUMP: StringName = &"jump"
 @onready var _guardian_sprite: AnimatedSprite2D = $GuardianSprite
 @onready var _attack_area: Area2D = get_node_or_null("AttackArea")
 @onready var _body_collision_shape: CollisionShape2D = get_node_or_null("CollisionShape2D")
-@onready var _animation_manager: Node = get_node_or_null("AnimationManager")
 @onready var _debug_widget: Node = get_node_or_null("PlayerDebugWidget")
 
 var _visuals_manager = null
@@ -67,15 +66,6 @@ var _current_jump_offset: Vector2 = Vector2.ZERO
 var _facing_left: bool = false
 var _last_reset_reason: StringName = &""
 
-func _animation_manager_has(method_name: StringName) -> bool:
-	return _animation_manager != null and _animation_manager.has_method(method_name)
-
-# Uses callv to keep this script resilient to component class parse/cache issues.
-func _animation_manager_call(method_name: StringName, args: Array = []) -> Variant:
-	if not _animation_manager_has(method_name):
-		return null
-	return _animation_manager.callv(method_name, args)
-
 func shake_camera(intensity: float = 8.0, duration: float = 0.15) -> void:
 	if _visuals_manager:
 		_visuals_manager.shake_camera(intensity, duration)
@@ -88,7 +78,7 @@ func _ready() -> void:
 	var VisualsManagerScript := load("res://scripts/player/visuals_manager.gd")
 	_visuals_manager = VisualsManagerScript.new()
 	add_child(_visuals_manager)
-	_visuals_manager.setup(self, _guardian_sprite, _animation_manager)
+	_visuals_manager.setup(self, _guardian_sprite)
 	_visuals_manager.jump_height = jump_height
 	_visuals_manager.jump_duration = jump_duration
 	_visuals_manager.set_facing_left(_facing_left)

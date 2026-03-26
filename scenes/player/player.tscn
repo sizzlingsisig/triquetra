@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://ch63bo6286f7"]
 
 [ext_resource type="Script" uid="uid://yr10l1tjfxpp" path="res://scripts/player/player_controller.gd" id="1_1d8qn"]
-[ext_resource type="Script" uid="uid://ctn4vu4xt07od" path="res://scripts/player/components/player_animation_manager.gd" id="1_1fu51"]
 [ext_resource type="Script" uid="uid://oqip088l04fo" path="res://scripts/player/components/player_debug_widget.gd" id="1_ogb84"]
 [ext_resource type="Script" uid="uid://bo648mtmmdcdx" path="res://scripts/player/states/state_sword.gd" id="2_5168u"]
 [ext_resource type="PackedScene" path="res://scenes/player/arrow_projectile.tscn" id="2_cq2fa"]
@@ -1116,9 +1115,6 @@ texture_filter = 1
 position = Vector2(53.333336, 277.99976)
 sprite_frames = SubResource("SpriteFrames_5miun")
 animation = &"sword_block"
-
-[node name="AnimationManager" type="Node" parent="." unique_id=1655587179]
-script = ExtResource("1_1fu51")
 
 [node name="PlayerDebugWidget" type="CanvasLayer" parent="." unique_id=667305620]
 script = ExtResource("1_ogb84")
