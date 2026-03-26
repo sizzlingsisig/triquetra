@@ -21,10 +21,10 @@ func _ready() -> void:
 		state_id = _derive_state_id_from_class()
 
 func _derive_state_id_from_class() -> StringName:
-	var class_name: String = get_class()
-	if class_name.begins_with("State"):
-		class_name = class_name.substr(5)
-	return StringName(class_name)
+	var cls_name: String = get_class()
+	if cls_name.begins_with("State"):
+		cls_name = cls_name.substr(5)
+	return StringName(cls_name)
 
 func can_accept_action(_action_name: StringName) -> bool:
 	return true
