@@ -42,8 +42,18 @@ func _refresh(force: bool) -> void:
 	if reset_reason.is_empty():
 		reset_reason = "<none>"
 
-	_label.text = "Form: %s\nLocked: %s\nBuffered Command: %s\nLast Reset: %s" % [
+	var can_move: bool = true
+	if _player.has_method("can_move"):
+		can_move = _player.can_move()
+
+	var current_action: String = "N/A"
+	if _player.has_method("get_current_action"):
+		current_action = _player.get_current_action()
+
+	_label.text = "Form: %s\nAction: %s\nCan Move: %s\nLocked: %s\nBuffered: %s\nReset: %s" % [
 		String(_player.get_active_form_id()),
+		current_action,
+		"✓" if can_move else "✗",
 		", ".join(locked_forms) if not locked_forms.is_empty() else "<none>",
 		buffered_command,
 		reset_reason

@@ -69,7 +69,13 @@ func consume_command_buffer(delta: float) -> bool:
 
 func _try_execute_command(command_id: StringName) -> bool:
 	match command_id:
-		COMMAND_SWAP_NEXT, COMMAND_SWAP_PREV, COMMAND_JUMP:
+		COMMAND_SWAP_NEXT, COMMAND_SWAP_PREV:
+			if _action_callback.is_valid():
+				var result = _action_callback.call(command_id)
+				if result is bool and result:
+					return true
+			return false
+		COMMAND_JUMP:
 			command_executed.emit(command_id)
 			return true
 		COMMAND_PRIMARY_ATTACK, COMMAND_SPECIAL:
@@ -82,7 +88,7 @@ func _try_execute_command(command_id: StringName) -> bool:
 					action_requested.emit(command_id)
 					return true
 			return false
-	return true
+	return false
 
 func _buffer_command(command_id: StringName) -> void:
 	for i in range(_command_buffer.size()):

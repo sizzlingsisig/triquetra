@@ -30,18 +30,6 @@ signal form_locked(form_id: StringName)
 @export var action_swap_next: StringName = &"swap_next"
 @export var action_swap_prev: StringName = &"swap_prev"
 
-const FORM_ORDER: Array[StringName] = [
-	&"Sword",
-	&"Spear",
-	&"Bow"
-]
-
-const COMMAND_SWAP_NEXT: StringName = &"swap_next"
-const COMMAND_SWAP_PREV: StringName = &"swap_prev"
-const COMMAND_PRIMARY_ATTACK: StringName = &"primary_attack"
-const COMMAND_SPECIAL: StringName = &"special"
-const COMMAND_JUMP: StringName = &"jump"
-
 @onready var _states_root: Node = $States
 @onready var _guardian_sprite: AnimatedSprite2D = $GuardianSprite
 @onready var _attack_area: Area2D = get_node_or_null("AttackArea")
@@ -185,6 +173,11 @@ func receive_enemy_hit() -> void:
 		_form_manager.receive_lethal_damage()
 
 func _apply_movement() -> void:
+	# Check if action state machine allows movement
+	if _form_manager and not _form_manager.can_move():
+		velocity = Vector2.ZERO
+		return
+	
 	# Top-down style directional movement with normalized diagonals.
 	var input_direction := Vector2.ZERO
 	input_direction.x = Input.get_axis(action_move_left, action_move_right)
@@ -221,32 +214,6 @@ func _try_start_jump() -> bool:
 	_jump_cooldown_remaining = jump_cooldown
 	return true
 
-func _update_jump(delta: float) -> void:
-	# Visual jump arc is implemented as local position offset, not physics y-velocity.
-	if not _guardian_sprite:
-		return
-
-	if not _is_jumping:
-		_current_jump_offset = Vector2.ZERO
-		_apply_jump_offset_to_nodes()
-		_guardian_sprite.scale = Vector2.ONE
-		return
-
-	_jump_elapsed += delta
-	var t: float = clamp(_jump_elapsed / jump_duration, 0.0, 1.0)
-	var arc: float = sin(t * PI)
-
-	_current_jump_offset = Vector2(0.0, -arc * jump_height)
-	_apply_jump_offset_to_nodes()
-	var stretch: float = 1.0 + (0.08 * arc)
-	_guardian_sprite.scale = Vector2(stretch, stretch)
-
-	if t >= 1.0:
-		_is_jumping = false
-		_current_jump_offset = Vector2.ZERO
-		_apply_jump_offset_to_nodes()
-		_guardian_sprite.scale = Vector2.ONE
-
 func _apply_jump_offset_to_nodes() -> void:
 	# Keep sprite, body collision aligned during jump arc.
 	# Attack area is now managed by CombatManager.
@@ -256,13 +223,6 @@ func _apply_jump_offset_to_nodes() -> void:
 		_body_collision_shape.position = _body_collision_base_position + _current_jump_offset
 	if _combat_manager:
 		_combat_manager.update_jump_offset(_current_jump_offset, _facing_left)
-
-func _is_action_just_pressed(event: InputEvent, action_name: StringName) -> bool:
-	if action_name.is_empty():
-		return false
-	if not InputMap.has_action(action_name):
-		return false
-	return event.is_action_pressed(action_name)
 
 func play_guardian_animation(animation_name: StringName, reset_frame: bool = true) -> void:
 	if _visuals_manager and _visuals_manager.play_animation(animation_name, reset_frame):
@@ -337,6 +297,20 @@ func get_active_form_id() -> StringName:
 	if _form_manager:
 		return _form_manager.get_active_form_id()
 	return &"Sword"
+
+func can_move() -> bool:
+	if _form_manager:
+		return _form_manager.can_move()
+	return true
+
+func get_current_action() -> String:
+	if _form_manager:
+		var active_state = _form_manager.get_active_state()
+		if active_state:
+			var action_sm = active_state.get("_action_sm")
+			if action_sm and action_sm.has_method("get_current_action_id"):
+				return String(action_sm.get_current_action_id())
+	return "N/A"
 
 func get_buffered_command_for_debug() -> String:
 	if _input_manager:

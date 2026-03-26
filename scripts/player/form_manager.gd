@@ -89,6 +89,11 @@ func _set_active_form(next_form: StringName) -> bool:
 
 	return true
 
+func can_move() -> bool:
+	if _active_state and _active_state.has_method("can_accept_action"):
+		return _active_state.can_accept_action(&"move")
+	return true
+
 func request_swap(direction: int) -> bool:
 	if FORM_ORDER.is_empty():
 		return false

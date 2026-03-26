@@ -9,6 +9,7 @@ const PRIMARY_ATTACK_ANIMATIONS: Array[StringName] = [
 ]
 
 var _primary_attack_index: int = 0
+var _action_sm = null
 
 func _ready() -> void:
 	form_id = &"Spear"
@@ -16,31 +17,84 @@ func _ready() -> void:
 func enter(_previous_form: StringName) -> void:
 	_primary_attack_index = 0
 	_play_animation(&"spear_idle")
+	_setup_action_state_machine()
+
+func _setup_action_state_machine() -> void:
+	if _action_sm:
+		_action_sm.queue_free()
+		_action_sm = null
+	
+	var ActionStateMachineScript = load("res://scripts/player/states/actions/action_state_machine.gd")
+	_action_sm = ActionStateMachineScript.new()
+	_player.add_child(_action_sm)
+	_action_sm.setup(_player, _get_visuals_manager())
+	
+	var ActionIdleScript = load("res://scripts/player/states/actions/action_idle.gd")
+	var ActionRunScript = load("res://scripts/player/states/actions/action_run.gd")
+	var ActionAttackScript = load("res://scripts/player/states/actions/action_attack.gd")
+	var ActionSpecialScript = load("res://scripts/player/states/actions/action_special.gd")
+	
+	_action_sm.add_action(&"Idle", ActionIdleScript.new())
+	_action_sm.add_action(&"Run", ActionRunScript.new())
+	
+	var attack_action = ActionAttackScript.new()
+	attack_action.attack_animations = PRIMARY_ATTACK_ANIMATIONS
+	attack_action.attack_window_timing = Vector2(0.04, 0.16)
+	_action_sm.add_action(&"Attack", attack_action)
+	
+	var special_action = ActionSpecialScript.new()
+	special_action.special_animation = &"spear_impale"
+	special_action.can_move_during = false
+	special_action.duration = 0.4
+	_action_sm.add_action(&"Special", special_action)
+	
+	_action_sm.set_action(&"Idle")
+
+func _get_visuals_manager() -> Node:
+	if _player and _player.has_method("_visuals_manager"):
+		var vm = _player.get("_visuals_manager")
+		if vm:
+			return vm
+	return null
 
 func handle_action(action_name: StringName) -> bool:
-	# Special attempts impale and applies brief camera/FX feedback.
 	if is_locked:
 		return false
-
+	
+	if not _action_sm:
+		return false
+	
 	match action_name:
 		&"primary_attack":
-			return _play_next_primary_attack()
+			return _action_sm.set_action(&"Attack")
 		&"special":
-			var played: bool = _play_first_available([&"spear_impale"])
-			if played:
-				_spawn_impale_fx()
-				# 3D tracking VFX stub
-				if _player and _player.has_method("shake_camera"):
-					_player.shake_camera(6.0, 0.12)
-			return played
+			_spawn_impale_fx()
+			if _player and _player.has_method("shake_camera"):
+				_player.shake_camera(6.0, 0.12)
+			return _action_sm.set_action(&"Special")
 		_:
 			return false
 
+func can_accept_action(_action_name: StringName) -> bool:
+	if is_locked:
+		return false
+	if _action_sm and not _action_sm.can_player_move():
+		return false
+	return true
+
+func physics_update(delta: float) -> void:
+	if _action_sm:
+		_action_sm.physics_update(delta)
+
+func update(delta: float) -> void:
+	if _action_sm:
+		_action_sm.update(delta)
+
 func should_open_attack_window(action_name: StringName) -> bool:
-	# Spear special also participates in the melee hit window.
 	if action_name == &"special":
 		return true
 	return action_name == &"primary_attack"
+
 func _spawn_impale_fx() -> void:
 	if not _player:
 		return
@@ -62,16 +116,9 @@ func _spawn_impale_fx() -> void:
 	_player.add_child(particles)
 	particles.emitting = true
 	var cleanup_timer: SceneTreeTimer = _player.get_tree().create_timer(particles.lifetime + 0.2)
-	cleanup_timer.timeout.connect(func() -> void:
-		if is_instance_valid(particles):
-			particles.queue_free()
-	)
+	cleanup_timer.timeout.connect(_cleanup_particles)
 
-func _play_next_primary_attack() -> bool:
-	for _attempt in range(PRIMARY_ATTACK_ANIMATIONS.size()):
-		var animation_name := PRIMARY_ATTACK_ANIMATIONS[_primary_attack_index]
-		_primary_attack_index = (_primary_attack_index + 1) % PRIMARY_ATTACK_ANIMATIONS.size()
-		if _play_first_available([animation_name]):
-			return true
-
-	return false
+func _cleanup_particles() -> void:
+	var fx = _player.get_node_or_null("SpearImpaleFx")
+	if fx and is_instance_valid(fx):
+		fx.queue_free()
