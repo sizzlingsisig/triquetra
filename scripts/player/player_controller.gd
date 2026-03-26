@@ -50,6 +50,7 @@ const COMMAND_JUMP: StringName = &"jump"
 @onready var _debug_widget: Node = get_node_or_null("PlayerDebugWidget")
 
 var _visuals_manager = null
+var _input_manager = null
 
 var _states: Dictionary = {}
 var _active_form: StringName = &"Sword"
@@ -57,7 +58,6 @@ var _active_state: Node
 var _game_manager: Node
 
 # Buffered commands are consumed during physics ticks so states can gate execution.
-var _command_buffer: Array[Dictionary] = []
 var _swap_coyote_remaining: float = 0.0
 var _is_jumping: bool = false
 var _jump_elapsed: float = 0.0
@@ -100,6 +100,20 @@ func _ready() -> void:
 	_visuals_manager.set_facing_left(_facing_left)
 	_visuals_manager.connect_attack_window(_set_attack_area_active)
 	
+	# Initialize InputManager
+	var InputManagerScript := load("res://scripts/player/input_manager.gd")
+	_input_manager = InputManagerScript.new()
+	add_child(_input_manager)
+	_input_manager.setup(self, _create_action_callback())
+	_input_manager.input_buffer_window = input_buffer_window
+	_input_manager.action_move_left = action_move_left
+	_input_manager.action_move_right = action_move_right
+	_input_manager.action_attack = action_attack
+	_input_manager.action_special = action_special
+	_input_manager.action_jump = action_jump
+	_input_manager.action_swap_next = action_swap_next
+	_input_manager.action_swap_prev = action_swap_prev
+	
 	if _animation_manager:
 		_animation_manager_call(&"set_form", [_active_form])
 	
@@ -112,9 +126,9 @@ func _ready() -> void:
 	_setup_debug_widget()
 
 func _physics_process(delta: float) -> void:
-	# Main gameplay loop: movement -> buffered commands -> state update -> jump/anim -> move.
 	_apply_movement()
-	_consume_command_buffer(delta)
+	if _input_manager:
+		_input_manager.consume_command_buffer(delta)
 
 	if _active_state:
 		_active_state.physics_update(delta)
@@ -139,22 +153,8 @@ func _process(delta: float) -> void:
 		_active_state.update(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Convert raw input into action commands for deterministic buffering/consumption.
-	if _is_action_just_pressed(event, action_swap_next):
-		_buffer_command(COMMAND_SWAP_NEXT)
-		return
-	if _is_action_just_pressed(event, action_swap_prev):
-		_buffer_command(COMMAND_SWAP_PREV)
-		return
-	if _is_action_just_pressed(event, action_attack):
-		_buffer_command(COMMAND_PRIMARY_ATTACK)
-		return
-	if _is_action_just_pressed(event, action_special):
-		_buffer_command(COMMAND_SPECIAL)
-		return
-	if _is_action_just_pressed(event, action_jump):
-		_buffer_command(COMMAND_JUMP)
-		return
+	if _input_manager:
+		_input_manager._unhandled_input(event)
 
 func _cache_states() -> void:
 	for child in _states_root.get_children():
@@ -228,6 +228,23 @@ func _request_swap(direction: int) -> void:
 	if _game_manager:
 		_game_manager.request_timeline_reset(&"no_guardians_remaining")
 
+func _create_action_callback() -> Callable:
+	return func(command_id: StringName) -> bool:
+		match command_id:
+			&"swap_next":
+				_request_swap(+1)
+				return true
+			&"swap_prev":
+				_request_swap(-1)
+				return true
+			&"jump":
+				return _try_start_jump()
+			&"primary_attack":
+				return _request_action(&"primary_attack")
+			&"special":
+				return _request_action(&"special")
+		return false
+
 func _request_action(action_name: StringName) -> bool:
 	# Active state decides if/when an action is accepted.
 	if not _active_state:
@@ -235,52 +252,6 @@ func _request_action(action_name: StringName) -> bool:
 	if not _active_state.can_accept_action(action_name):
 		return false
 	return _active_state.handle_action(action_name)
-
-func _consume_command_buffer(delta: float) -> void:
-	# 1) Expire stale commands, 2) execute first command that can run this frame.
-	for i in range(_command_buffer.size() - 1, -1, -1):
-		var cmd := _command_buffer[i]
-		cmd.time_left = float(cmd.time_left) - delta
-		if cmd.time_left <= 0.0:
-			_command_buffer.remove_at(i)
-		else:
-			_command_buffer[i] = cmd
-
-	if _command_buffer.is_empty():
-		return
-
-	for i in range(_command_buffer.size()):
-		var command_id: StringName = _command_buffer[i].id
-		if _try_execute_command(command_id):
-			_command_buffer.remove_at(i)
-			return
-
-func _try_execute_command(command_id: StringName) -> bool:
-	match command_id:
-		COMMAND_SWAP_NEXT:
-			_request_swap(+1)
-			return true
-		COMMAND_SWAP_PREV:
-			_request_swap(-1)
-			return true
-		COMMAND_JUMP:
-			return _try_start_jump()
-		COMMAND_PRIMARY_ATTACK:
-			return _request_action(&"primary_attack")
-		COMMAND_SPECIAL:
-			return _request_action(&"special")
-		_:
-			return true
-
-func _buffer_command(command_id: StringName) -> void:
-	for i in range(_command_buffer.size()):
-		if _command_buffer[i].id == command_id:
-			_command_buffer[i].time_left = input_buffer_window
-			return
-	_command_buffer.append({
-		"id": command_id,
-		"time_left": input_buffer_window
-	})
 
 func _set_attack_area_active(is_active: bool) -> void:
 	# Attack area follows facing direction and current jump arc offset.
@@ -465,7 +436,8 @@ func _reset_run_flow() -> void:
 	if _game_manager and _game_manager.has_method("reset_run_state"):
 		_game_manager.reset_run_state()
 
-	_command_buffer.clear()
+	if _input_manager:
+		_input_manager.clear_buffer()
 	_swap_coyote_remaining = 0.0
 	_is_jumping = false
 	_jump_elapsed = 0.0
@@ -519,9 +491,12 @@ func get_active_form_id() -> StringName:
 	return _active_form
 
 func get_buffered_command_for_debug() -> String:
-	if _command_buffer.is_empty():
-		return "<none>"
-	return String(_command_buffer[0].id)
+	if _input_manager:
+		var cmd: StringName = _input_manager.get_buffered_command()
+		if cmd.is_empty():
+			return "<none>"
+		return String(cmd)
+	return "<none>"
 
 func get_last_reset_reason_for_debug() -> String:
 	return String(_last_reset_reason)
