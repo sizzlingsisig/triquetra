@@ -429,6 +429,8 @@ size = Vector2(56, 42)
 
 [node name="Enemy" type="CharacterBody2D" unique_id=882156010]
 script = ExtResource("enemy_script")
+is_shielded = true
+enable_knight_attacks = true
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1605494767]
 texture_filter = 1

@@ -42,6 +42,9 @@ func should_open_attack_window(action_name: StringName) -> bool:
 	return action_name == &"primary_attack"
 
 func receive_lethal_damage() -> void:
+	# Play optional death animation before locking form state.
+	if form_id and _has_animation(String(form_id).to_lower() + "_dead"):
+		_play_animation(String(form_id).to_lower() + "_dead")
 	_lock_guardian_once()
 
 func _lock_guardian_once() -> bool:

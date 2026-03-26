@@ -20,10 +20,14 @@ const ATTACK_ANIMATIONS: Array[StringName] = [
 @onready var _projectile_spawn: Node2D = get_node_or_null("ProjectileSpawn")
 
 var _attack_index: int = 0
+@export var max_health: int = 2
+var _current_health: int = 2
+var _attack_window_active: bool = false
 
 func _ready() -> void:
 	if is_in_group("arrow_skeleton"):
 		is_arrow_skeleton = true
+	_current_health = max(max_health, 1)
 
 	if _attack_timer:
 		_attack_timer.wait_time = max(attack_interval, 0.2)
@@ -42,16 +46,50 @@ func _on_attack_hitbox_body_entered(body: Node) -> void:
 	if not _is_player_attack(body):
 		return
 
-	receive_player_hit()
+	var attack_form: StringName = &"Sword"
+	if body and body.is_in_group("projectile"):
+		attack_form = &"Bow"
+	# fallback: melee hits are assumed Sword if no explicit form
+	receive_player_hit(attack_form)
 
 func _on_attack_hitbox_area_entered(area: Area2D) -> void:
 	if not _is_player_attack(area):
 		return
 
-	receive_player_hit()
+	var attack_form: StringName = &"Sword"
+	if area and area.is_in_group("projectile"):
+		attack_form = &"Bow"
+	receive_player_hit(attack_form)
 
-func receive_player_hit() -> void:
+func receive_player_hit(attacker_form: StringName = &"Sword") -> void:
+	var damage: int = 0
+
+	if is_shielded:
+		match attacker_form:
+			&"Sword":
+				damage = 1
+			&"Spear":
+				damage = _current_health
+			&"Bow":
+				damage = 0
+			_:
+				damage = 1
+	else:
+		damage = 1
+
+	if damage <= 0:
+		_play_defend()
+		return
+
+	_current_health = max(_current_health - damage, 0)
+	if _current_health <= 0:
+		_die()
+		return
+
 	_play_hurt()
+
+	if _attack_window_active:
+		_counter_attack_player()
 
 func _is_player_attack(node: Node) -> bool:
 	if not node:
@@ -78,6 +116,8 @@ func _on_enemy_attack_area_body_entered(body: Node) -> void:
 	_spawn_hit_impact_fx(body.global_position)
 	if body.has_method("shake_camera"):
 		body.shake_camera(4.0, 0.08)
+	if body.has_method("receive_enemy_hit"):
+		body.receive_enemy_hit()
 
 func _play_idle() -> void:
 	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(&"knight_idle"):
@@ -120,11 +160,13 @@ func _activate_attack_area_window() -> void:
 	if not _enemy_attack_area:
 		return
 
+	_attack_window_active = true
 	_enemy_attack_area.monitoring = true
 	var timer: SceneTreeTimer = get_tree().create_timer(max(attack_active_time, 0.05))
 	timer.timeout.connect(func() -> void:
 		if _enemy_attack_area:
 			_enemy_attack_area.monitoring = false
+		_attack_window_active = false
 	)
 
 func _spawn_guard_fx() -> void:
@@ -194,6 +236,32 @@ func _spawn_hit_impact_fx(hit_position: Vector2) -> void:
 		if is_instance_valid(particles):
 			particles.queue_free()
 	)
+
+func _die() -> void:
+	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(&"knight_dead"):
+		_sprite.play(&"knight_dead")
+	if _enemy_attack_area:
+		_enemy_attack_area.monitoring = false
+		_enemy_attack_area.monitorable = false
+	if _attack_timer:
+		_attack_timer.stop()
+
+	var cleanup_timer_die: SceneTreeTimer = get_tree().create_timer(0.28)
+	cleanup_timer_die.timeout.connect(func() -> void:
+		if is_instance_valid(self):
+			queue_free()
+	)
+
+func _counter_attack_player() -> void:
+	var root_parent: Node = get_parent()
+	if not root_parent:
+		return
+	var player = root_parent.get_node_or_null("Player")
+	if player and player.has_method("receive_enemy_hit"):
+		player.receive_enemy_hit()
+		_spawn_hit_impact_fx(player.global_position)
+		if player.has_method("shake_camera"):
+			player.shake_camera(5.0, 0.1)
 
 func _spawn_arrow_projectile() -> void:
 	var arrow := Area2D.new()
