@@ -68,6 +68,7 @@ var _facing_left: bool = false
 var _last_reset_reason: StringName = &""
 var _lock_event_processed: Dictionary = {}
 var _attack_window_hit_ids: Dictionary = {}
+var _is_resetting: bool = false
 
 @onready var _camera: Camera2D = get_node_or_null("Camera2D")
 
@@ -165,12 +166,26 @@ func _cache_states() -> void:
 	for child in _states_root.get_children():
 		if child.has_method("setup") and child.has_method("receive_lethal_damage"):
 			var state: Node = child
-			_states[state.form_id] = state
+			var form_id_value: Variant = state.get("form_id")
+			if not (form_id_value is StringName):
+				push_warning("State node missing StringName form_id: %s" % state.name)
+				continue
+
+			var form_id: StringName = form_id_value
+			if form_id.is_empty() or not FORM_ORDER.has(form_id):
+				push_warning("State node has invalid form_id '%s': %s" % [String(form_id), state.name])
+				continue
+
+			_states[form_id] = state
 
 func _connect_state_signals() -> void:
 	for state in _states.values():
 		var guardian_state: Node = state
-		guardian_state.guardian_locked.connect(_on_guardian_locked)
+		if not guardian_state.has_signal("guardian_locked"):
+			push_warning("State node missing guardian_locked signal: %s" % guardian_state.name)
+			continue
+		if not guardian_state.guardian_locked.is_connected(_on_guardian_locked):
+			guardian_state.guardian_locked.connect(_on_guardian_locked)
 
 func _connect_game_manager_signals() -> void:
 	if not _game_manager:
@@ -275,7 +290,8 @@ func _try_execute_command(command_id: StringName) -> bool:
 		COMMAND_SPECIAL:
 			return _request_action(&"special")
 		_:
-			return true
+			_log_debug("Ignored unknown command id: %s" % String(command_id))
+			return false
 
 func _buffer_command(command_id: StringName) -> void:
 	for i in range(_command_buffer.size()):
@@ -291,8 +307,9 @@ func _set_attack_area_active(is_active: bool) -> void:
 	# Attack area follows facing direction and current jump arc offset.
 	if not _attack_area:
 		return
-	_attack_area.monitoring = is_active
-	_attack_area.monitorable = is_active
+	# Defer monitor flag writes to avoid mutating Area2D during physics query flush.
+	_attack_area.set_deferred("monitoring", is_active)
+	_attack_area.set_deferred("monitorable", is_active)
 	if is_active:
 		_attack_window_hit_ids.clear()
 		var forward_sign := -1.0 if _facing_left else 1.0
@@ -310,7 +327,7 @@ func _apply_attack_overlap_hits() -> void:
 	for overlap in _attack_area.get_overlapping_areas():
 		if not overlap:
 			continue
-		if overlap.name != "AttackHitbox":
+		if not overlap.is_in_group("enemy_hurtbox") and overlap.name != "AttackHitbox":
 			continue
 
 		var enemy_node: Node = overlap.get_parent()
@@ -407,15 +424,24 @@ func _apply_jump_offset_to_nodes() -> void:
 		_attack_area.position = _attack_area_base_position + attack_forward + _current_jump_offset
 
 func _is_form_locked(form_id: StringName) -> bool:
-	if _game_manager:
+	if _game_manager and _game_manager.has_method("is_guardian_locked"):
 		return _game_manager.is_guardian_locked(form_id)
+	if _game_manager and not _game_manager.has_method("is_guardian_locked"):
+		_log_debug("GameManager missing is_guardian_locked(); using local fallback.")
 	if _states.has(form_id):
-		return (_states[form_id] as Node).is_locked
+		var state: Node = _states[form_id] as Node
+		var lock_value: Variant = state.get("is_locked")
+		if lock_value is bool:
+			return lock_value
+		_log_debug("State missing bool is_locked value: %s" % state.name)
 	return true
 
 func _on_guardian_locked(form_id: StringName) -> void:
 	if _game_manager and _game_manager.has_method("lock_guardian"):
 		_game_manager.lock_guardian(form_id)
+		return
+
+	_log_debug("GameManager lock_guardian() unavailable; applying local lock fallback.")
 	_handle_guardian_locked(form_id, &"state")
 
 func _on_manager_guardian_locked(form_id: StringName) -> void:
@@ -461,12 +487,27 @@ func has_guardian_animation(animation_name: StringName) -> bool:
 	return _guardian_sprite.sprite_frames.has_animation(animation_name)
 
 func _on_timeline_reset_requested(reason: StringName) -> void:
+	if _is_resetting:
+		return
+
+	_is_resetting = true
 	_last_reset_reason = reason
 	_log_debug("Timeline reset requested: %s" % String(reason))
 	call_deferred("_reset_run_flow")
 
 func _reset_run_flow() -> void:
 	# Clear local runtime state, reset global run state, and reload current scene.
+	if not is_inside_tree():
+		return
+
+	var tree := get_tree()
+	if not tree:
+		return
+
+	var scene_path: String = ""
+	if tree.current_scene:
+		scene_path = tree.current_scene.scene_file_path
+
 	if _game_manager and _game_manager.has_method("reset_run_state"):
 		_game_manager.reset_run_state()
 
@@ -477,16 +518,16 @@ func _reset_run_flow() -> void:
 	_jump_cooldown_remaining = 0.0
 	_current_jump_offset = Vector2.ZERO
 	_reset_lock_event_tracking()
-	_reload_current_scene()
+	_reload_current_scene(tree, scene_path)
 
-func _reload_current_scene() -> void:
-	var tree := get_tree()
+func _reload_current_scene(tree: SceneTree, scene_path: String) -> void:
 	if not tree:
+		_is_resetting = false
 		return
-	if tree.current_scene and not tree.current_scene.scene_file_path.is_empty():
-		tree.change_scene_to_file(tree.current_scene.scene_file_path)
+	if not scene_path.is_empty():
+		tree.call_deferred("change_scene_to_file", scene_path)
 		return
-	tree.reload_current_scene()
+	tree.call_deferred("reload_current_scene")
 
 func _reset_lock_event_tracking() -> void:
 	_lock_event_processed.clear()
@@ -549,4 +590,4 @@ func get_arrow_spawn_position() -> Vector2:
 	if not _guardian_sprite:
 		return global_position
 	var direction := get_facing_direction()
-	return _guardian_sprite.global_position + Vector2(direction.x * 20.0, -8.0 + _current_jump_offset.y)
+	return _guardian_sprite.global_position + Vector2(direction.x * 20.0, 4.0)

@@ -71,7 +71,7 @@ func receive_player_hit(attacker_form: StringName = &"Sword") -> void:
 			&"Spear":
 				damage = _current_health
 			&"Bow":
-				damage = 0
+				damage = 1
 			_:
 				damage = 1
 	else:
@@ -108,9 +108,7 @@ func _on_attack_timer_timeout() -> void:
 	_activate_attack_area_window()
 
 func _on_enemy_attack_area_body_entered(body: Node) -> void:
-	if not body:
-		return
-	if body.name != "Player":
+	if not _is_player_target(body):
 		return
 
 	_spawn_hit_impact_fx(body.global_position)
@@ -126,20 +124,12 @@ func _play_idle() -> void:
 func _play_defend() -> void:
 	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(&"knight_defend"):
 		_sprite.play(&"knight_defend")
-
-	var timer: SceneTreeTimer = get_tree().create_timer(0.22)
-	timer.timeout.connect(func() -> void:
-		_play_idle()
-	)
+	_run_after(0.22, _play_idle)
 
 func _play_hurt() -> void:
 	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(&"knight_hurt"):
 		_sprite.play(&"knight_hurt")
-
-	var timer: SceneTreeTimer = get_tree().create_timer(0.18)
-	timer.timeout.connect(func() -> void:
-		_play_idle()
-	)
+	_run_after(0.18, _play_idle)
 
 func _play_next_attack_animation() -> void:
 	if not _sprite or not _sprite.sprite_frames:
@@ -150,10 +140,7 @@ func _play_next_attack_animation() -> void:
 		_attack_index = (_attack_index + 1) % ATTACK_ANIMATIONS.size()
 		if _sprite.sprite_frames.has_animation(animation_name):
 			_sprite.play(animation_name)
-			var timer: SceneTreeTimer = get_tree().create_timer(0.35)
-			timer.timeout.connect(func() -> void:
-				_play_idle()
-			)
+			_run_after(0.35, _play_idle)
 			return
 
 func _activate_attack_area_window() -> void:
@@ -162,12 +149,7 @@ func _activate_attack_area_window() -> void:
 
 	_attack_window_active = true
 	_enemy_attack_area.monitoring = true
-	var timer: SceneTreeTimer = get_tree().create_timer(max(attack_active_time, 0.05))
-	timer.timeout.connect(func() -> void:
-		if _enemy_attack_area:
-			_enemy_attack_area.monitoring = false
-		_attack_window_active = false
-	)
+	_run_after(max(attack_active_time, 0.05), _on_attack_area_window_timeout)
 
 func _spawn_guard_fx() -> void:
 	var particles := CPUParticles2D.new()
@@ -183,12 +165,7 @@ func _spawn_guard_fx() -> void:
 	particles.position = Vector2(0.0, -12.0)
 	add_child(particles)
 	particles.emitting = true
-
-	var cleanup_timer: SceneTreeTimer = get_tree().create_timer(particles.lifetime + 0.2)
-	cleanup_timer.timeout.connect(func() -> void:
-		if is_instance_valid(particles):
-			particles.queue_free()
-	)
+	_queue_free_after(particles, particles.lifetime + 0.2)
 
 func _spawn_attack_fx() -> void:
 	var particles := CPUParticles2D.new()
@@ -204,12 +181,7 @@ func _spawn_attack_fx() -> void:
 	particles.position = Vector2(-18.0 if _sprite.flip_h else 18.0, -10.0)
 	add_child(particles)
 	particles.emitting = true
-
-	var cleanup_timer: SceneTreeTimer = get_tree().create_timer(particles.lifetime + 0.2)
-	cleanup_timer.timeout.connect(func() -> void:
-		if is_instance_valid(particles):
-			particles.queue_free()
-	)
+	_queue_free_after(particles, particles.lifetime + 0.2)
 
 func _spawn_hit_impact_fx(hit_position: Vector2) -> void:
 	var particles := CPUParticles2D.new()
@@ -230,12 +202,7 @@ func _spawn_hit_impact_fx(hit_position: Vector2) -> void:
 	else:
 		add_child(particles)
 	particles.emitting = true
-
-	var cleanup_timer: SceneTreeTimer = get_tree().create_timer(particles.lifetime + 0.2)
-	cleanup_timer.timeout.connect(func() -> void:
-		if is_instance_valid(particles):
-			particles.queue_free()
-	)
+	_queue_free_after(particles, particles.lifetime + 0.2)
 
 func _die() -> void:
 	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(&"knight_dead"):
@@ -245,12 +212,7 @@ func _die() -> void:
 		_enemy_attack_area.monitorable = false
 	if _attack_timer:
 		_attack_timer.stop()
-
-	var cleanup_timer_die: SceneTreeTimer = get_tree().create_timer(0.28)
-	cleanup_timer_die.timeout.connect(func() -> void:
-		if is_instance_valid(self):
-			queue_free()
-	)
+	_run_after(0.28, _queue_free_self)
 
 func _counter_attack_player() -> void:
 	var root_parent: Node = get_parent()
@@ -289,9 +251,9 @@ func _spawn_arrow_projectile() -> void:
 	marker.color = Color(0.9, 0.85, 0.72, 0.95)
 	arrow.add_child(marker)
 
-	var direction := Vector2.LEFT if _sprite.flip_h else Vector2.RIGHT
+	var direction: Vector2 = Vector2.LEFT if _sprite.flip_h else Vector2.RIGHT
 	arrow.rotation = direction.angle()
-	arrow.global_position = _projectile_spawn.global_position if _projectile_spawn else global_position + Vector2(direction.x * 24.0, -8.0)
+	arrow.global_position = _get_arrow_spawn_position(direction)
 
 	var host := get_parent()
 	if host:
@@ -299,17 +261,7 @@ func _spawn_arrow_projectile() -> void:
 	else:
 		add_child(arrow)
 
-	arrow.body_entered.connect(func(body: Node) -> void:
-		if not body:
-			return
-		if body.name != "Player":
-			return
-		_spawn_hit_impact_fx(body.global_position)
-		if body.has_method("shake_camera"):
-			body.shake_camera(5.0, 0.1)
-		if is_instance_valid(arrow):
-			arrow.queue_free()
-	)
+	arrow.body_entered.connect(_on_arrow_body_entered.bind(weakref(arrow)))
 
 	var travel_distance = arrow_speed * max(arrow_lifetime, 0.2)
 	var target = arrow.global_position + (direction * travel_distance)
@@ -317,7 +269,61 @@ func _spawn_arrow_projectile() -> void:
 
 	var tween: Tween = arrow.create_tween()
 	tween.tween_property(arrow, "global_position", target, travel_time)
-	tween.finished.connect(func() -> void:
-		if is_instance_valid(arrow):
-			arrow.queue_free()
-	)
+	tween.finished.connect(_queue_free_weak.bind(weakref(arrow)))
+
+func _get_arrow_spawn_position(direction: Vector2) -> Vector2:
+	# Keep enemy arrow muzzle placement consistent with player bow spawn offsets.
+	if _projectile_spawn:
+		return _projectile_spawn.global_position
+	if _sprite:
+		return _sprite.global_position + Vector2(direction.x * 20.0, -8.0)
+	return global_position + Vector2(direction.x * 20.0, -8.0)
+
+func _on_attack_area_window_timeout() -> void:
+	if _enemy_attack_area:
+		_enemy_attack_area.monitoring = false
+	_attack_window_active = false
+
+func _is_player_target(node: Node) -> bool:
+	if not node:
+		return false
+	if node.is_in_group("player"):
+		return true
+	return node.has_method("receive_enemy_hit")
+
+func _run_after(delay_seconds: float, callback: Callable) -> void:
+	if delay_seconds < 0.0:
+		delay_seconds = 0.0
+	var tree: SceneTree = get_tree()
+	if not tree:
+		return
+	var timer: SceneTreeTimer = tree.create_timer(delay_seconds)
+	timer.timeout.connect(callback)
+
+func _queue_free_after(target: Node, delay_seconds: float) -> void:
+	if not target:
+		return
+	_run_after(delay_seconds, _queue_free_weak.bind(weakref(target)))
+
+func _queue_free_weak(target_ref: WeakRef) -> void:
+	var target: Object = target_ref.get_ref()
+	if target and is_instance_valid(target) and target is Node:
+		(target as Node).queue_free()
+
+func _queue_free_self() -> void:
+	if is_instance_valid(self):
+		queue_free()
+
+func _on_arrow_body_entered(body: Node, arrow_ref: WeakRef) -> void:
+	if not _is_player_target(body):
+		return
+
+	_spawn_hit_impact_fx(body.global_position)
+	if body.has_method("shake_camera"):
+		body.shake_camera(5.0, 0.1)
+	if body.has_method("receive_enemy_hit"):
+		body.receive_enemy_hit()
+
+	var arrow: Area2D = arrow_ref.get_ref() as Area2D
+	if arrow and is_instance_valid(arrow):
+		arrow.queue_free()

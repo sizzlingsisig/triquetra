@@ -69,10 +69,12 @@ func _spawn_block_fx() -> void:
 	_player.add_child(particles)
 	particles.emitting = true
 	var cleanup_timer: SceneTreeTimer = _player.get_tree().create_timer(particles.lifetime + 0.2)
-	cleanup_timer.timeout.connect(func() -> void:
-		if is_instance_valid(particles):
-			particles.queue_free()
-	)
+	cleanup_timer.timeout.connect(_queue_free_weak.bind(weakref(particles)))
+
+func _queue_free_weak(target_ref: WeakRef) -> void:
+	var target: Object = target_ref.get_ref()
+	if target and is_instance_valid(target) and target is Node:
+		(target as Node).queue_free()
 
 func _play_next_primary_attack() -> bool:
 	for _attempt in range(PRIMARY_ATTACK_ANIMATIONS.size()):

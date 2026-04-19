@@ -683,7 +683,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"bow_shot",
-"speed": 12.0
+"speed": 30.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -733,7 +733,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"bow_shot_2",
-"speed": 12.0
+"speed": 30.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -1115,7 +1115,7 @@ metadata/_edit_group_ = true
 texture_filter = 1
 position = Vector2(53.333336, 277.99976)
 sprite_frames = SubResource("SpriteFrames_5miun")
-animation = &"sword_block"
+animation = &"bow_shot_2"
 
 [node name="AnimationManager" type="Node" parent="." unique_id=1655587179]
 script = ExtResource("1_1fu51")

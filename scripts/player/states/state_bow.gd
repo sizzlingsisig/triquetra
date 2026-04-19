@@ -120,10 +120,7 @@ func _spawn_disengage_fx() -> void:
 	particles.emitting = true
 
 	var cleanup_timer: SceneTreeTimer = _player.get_tree().create_timer(particles.lifetime + 0.2)
-	cleanup_timer.timeout.connect(func() -> void:
-		if is_instance_valid(particles):
-			particles.queue_free()
-	)
+	cleanup_timer.timeout.connect(_queue_free_weak.bind(weakref(particles)))
 
 func _spawn_slide_trail_fx() -> void:
 	if not _player:
@@ -166,10 +163,7 @@ func _spawn_slide_trail_fx() -> void:
 	trail_tween.set_parallel(true)
 	trail_tween.tween_property(trail_node, "modulate:a", 0.0, max(slide_trail_lifetime, 0.01))
 	trail_tween.tween_property(trail_node, "scale", trail_node.scale * 1.05, max(slide_trail_lifetime, 0.01))
-	trail_tween.finished.connect(func() -> void:
-		if is_instance_valid(trail_node):
-			trail_node.queue_free()
-	)
+	trail_tween.finished.connect(_queue_free_weak.bind(weakref(trail_node)))
 
 func _spawn_arrow_from_state() -> void:
 	# Spawns projectile scene after a short wind-up to sync with shot animation.
@@ -179,21 +173,37 @@ func _spawn_arrow_from_state() -> void:
 		return
 
 	var timer: SceneTreeTimer = _player.get_tree().create_timer(0.06)
-	timer.timeout.connect(func() -> void:
-		if not _player:
-			return
-		var arrow: Node = arrow_scene.instantiate()
-		if not arrow:
-			return
+	timer.timeout.connect(_on_arrow_spawn_timer_timeout.bind(weakref(_player)))
 
-		var host: Node = _player.get_parent()
-		if host:
-			host.add_child(arrow)
-		else:
-			_player.add_child(arrow)
+func _on_arrow_spawn_timer_timeout(player_ref: WeakRef) -> void:
+	var player_node: CharacterBody2D = player_ref.get_ref() as CharacterBody2D
+	if not player_node or not is_instance_valid(player_node):
+		return
+	if not arrow_scene:
+		return
 
-		if arrow.has_method("launch"):
-			var direction = _player.get_facing_direction() if _player.has_method("get_facing_direction") else Vector2.RIGHT
-			var spawn_position = _player.get_arrow_spawn_position() if _player.has_method("get_arrow_spawn_position") else _player.global_position
-			arrow.launch(spawn_position, direction)
-	)
+	var arrow: Node = arrow_scene.instantiate()
+	if not arrow:
+		return
+
+	var host: Node = player_node.get_parent()
+	if host:
+		host.add_child(arrow)
+	else:
+		player_node.add_child(arrow)
+
+	if arrow.has_method("launch"):
+		var direction: Vector2 = Vector2.RIGHT
+		if player_node.has_method("get_facing_direction"):
+			direction = player_node.get_facing_direction()
+
+		var spawn_position: Vector2 = player_node.global_position
+		if player_node.has_method("get_arrow_spawn_position"):
+			spawn_position = player_node.get_arrow_spawn_position()
+
+		arrow.launch(spawn_position, direction)
+
+func _queue_free_weak(target_ref: WeakRef) -> void:
+	var target: Object = target_ref.get_ref()
+	if target and is_instance_valid(target) and target is Node:
+		(target as Node).queue_free()

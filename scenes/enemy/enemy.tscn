@@ -231,7 +231,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_sff7j")
 }],
-"loop": true,
+"loop": false,
 "name": &"knight_attack1",
 "speed": 5.0
 }, {
@@ -248,7 +248,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_emhag")
 }],
-"loop": true,
+"loop": false,
 "name": &"knight_attack2",
 "speed": 5.0
 }, {
@@ -265,7 +265,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_xkfgb")
 }],
-"loop": true,
+"loop": false,
 "name": &"knight_attack3",
 "speed": 5.0
 }, {
@@ -437,7 +437,7 @@ texture_filter = 1
 position = Vector2(955, 417)
 scale = Vector2(1.5, 1.5)
 sprite_frames = SubResource("SpriteFrames_10cgr")
-animation = &"knight_idle"
+animation = &"knight_attack3"
 autoplay = "knight_idle"
 flip_h = true
 

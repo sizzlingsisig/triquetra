@@ -55,7 +55,7 @@ func play(animation_name: StringName, reset_frame: bool = true) -> bool:
 		_play_attack_window_timeline(animation_name)
 	else:
 		_current_action_animation = &""
-		attack_window_toggled.emit(false)
+		call_deferred("_emit_attack_window_signal", false)
 	return true
 
 func play_or_fallback(animation_name: StringName, reset_frame: bool = true) -> bool:
@@ -140,13 +140,16 @@ func _play_attack_window_timeline(animation_name: StringName) -> void:
 	if not _attack_timeline_player:
 		return
 	if not _attack_timeline_player.has_animation(animation_name):
-		attack_window_toggled.emit(false)
+		call_deferred("_emit_attack_window_signal", false)
 		return
 	_attack_timeline_player.play(animation_name)
 
 func _emit_attack_window(animation_name: StringName, active: bool) -> void:
 	if _current_action_animation != animation_name:
 		return
+	call_deferred("_emit_attack_window_signal", active)
+
+func _emit_attack_window_signal(active: bool) -> void:
 	attack_window_toggled.emit(active)
 
 func _is_action_clip(animation_name: StringName) -> bool:
@@ -172,7 +175,7 @@ func _on_sprite_animation_finished() -> void:
 		return
 
 	if _current_action_animation == _sprite.animation:
-		attack_window_toggled.emit(false)
+		call_deferred("_emit_attack_window_signal", false)
 		_post_action_idle_remaining = post_action_idle_hold
 		action_animation_finished.emit(_current_action_animation)
 		_current_action_animation = &""
