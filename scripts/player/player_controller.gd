@@ -29,6 +29,7 @@ signal form_locked(form_id: StringName)
 @export var action_jump: StringName = &"jump"
 @export var action_swap_next: StringName = &"swap_next"
 @export var action_swap_prev: StringName = &"swap_prev"
+@export var action_pause: StringName = &"ui_cancel"
 
 const FORM_ORDER: Array[StringName] = [
 	&"Sword",
@@ -53,6 +54,7 @@ var _states: Dictionary = {}
 var _active_form: StringName = &"Sword"
 var _active_state: Node
 var _game_manager: Node
+var _game_state_machine: Node
 
 # Buffered commands are consumed during physics ticks so states can gate execution.
 var _command_buffer: Array[Dictionary] = []
@@ -91,8 +93,11 @@ func shake_camera(intensity: float = 8.0, duration: float = 0.15) -> void:
 func _ready() -> void:
 	# Cache dependencies and initial local offsets before runtime updates begin.
 	_game_manager = get_node_or_null("/root/GameManager")
+	_game_state_machine = get_node_or_null("/root/GameStateMachine")
 	_reset_lock_event_tracking()
 	_connect_game_manager_signals()
+	if _game_state_machine and _game_state_machine.has_method("set_playing"):
+		_game_state_machine.set_playing(&"run_start")
 
 	if _guardian_sprite:
 		_sprite_base_position = _guardian_sprite.position
@@ -120,10 +125,17 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	# Main gameplay loop: movement -> buffered commands -> state update -> jump/anim -> move.
-	_apply_movement()
-	_consume_command_buffer(delta)
+	if _can_process_movement():
+		_apply_movement()
+	else:
+		velocity = Vector2.ZERO
 
-	if _active_state:
+	if _can_process_combat():
+		_consume_command_buffer(delta)
+	else:
+		_command_buffer.clear()
+
+	if _active_state and _can_process_combat():
 		_active_state.physics_update(delta)
 
 	_update_jump(delta)
@@ -138,13 +150,26 @@ func _physics_process(delta: float) -> void:
 	if _jump_cooldown_remaining > 0.0:
 		_jump_cooldown_remaining -= delta
 
-	_apply_attack_overlap_hits()
+	if _can_process_combat():
+		_apply_attack_overlap_hits()
 
 func _process(delta: float) -> void:
-	if _active_state:
+	if _active_state and _can_process_combat():
 		_active_state.update(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _is_action_just_pressed(event, action_pause):
+		_toggle_pause_state()
+		return
+
+	if _is_game_over_state():
+		if _is_action_just_pressed(event, action_attack) or _is_action_just_pressed(event, action_jump) or _is_action_just_pressed(event, action_special):
+			_request_retry_from_game_over()
+		return
+
+	if not _can_process_combat():
+		return
+
 	# Convert raw input into action commands for deterministic buffering/consumption.
 	if _is_action_just_pressed(event, action_swap_next):
 		_buffer_command(COMMAND_SWAP_NEXT)
@@ -194,6 +219,8 @@ func _connect_game_manager_signals() -> void:
 		_game_manager.guardian_locked.connect(_on_manager_guardian_locked)
 	if _game_manager.has_signal("timeline_reset_requested") and not _game_manager.timeline_reset_requested.is_connected(_on_timeline_reset_requested):
 		_game_manager.timeline_reset_requested.connect(_on_timeline_reset_requested)
+	if _game_manager.has_signal("game_over_requested") and not _game_manager.game_over_requested.is_connected(_on_game_over_requested):
+		_game_manager.game_over_requested.connect(_on_game_over_requested)
 
 func _initialize_state_contexts() -> void:
 	for state in _states.values():
@@ -206,7 +233,10 @@ func _activate_first_available_state() -> void:
 			return
 
 	if _game_manager:
-		_game_manager.request_timeline_reset(&"no_guardians_remaining")
+		if _game_manager.has_method("request_game_over"):
+			_game_manager.request_game_over(&"no_guardians_remaining")
+		else:
+			_game_manager.request_timeline_reset(&"no_guardians_remaining")
 
 func _set_active_form(next_form: StringName) -> void:
 	# States own form-specific behavior. Controller only manages transitions.
@@ -246,10 +276,15 @@ func _request_swap(direction: int) -> void:
 			return
 
 	if _game_manager:
-		_game_manager.request_timeline_reset(&"no_guardians_remaining")
+		if _game_manager.has_method("request_game_over"):
+			_game_manager.request_game_over(&"no_guardians_remaining")
+		else:
+			_game_manager.request_timeline_reset(&"no_guardians_remaining")
 
 func _request_action(action_name: StringName) -> bool:
 	# Active state decides if/when an action is accepted.
+	if not _can_process_combat():
+		return false
 	if not _active_state:
 		return false
 	if not _active_state.can_accept_action(action_name):
@@ -490,10 +525,19 @@ func _on_timeline_reset_requested(reason: StringName) -> void:
 	if _is_resetting:
 		return
 
+	if _game_state_machine and _game_state_machine.has_method("set_playing"):
+		_game_state_machine.set_playing(&"timeline_reset")
+
 	_is_resetting = true
 	_last_reset_reason = reason
 	_log_debug("Timeline reset requested: %s" % String(reason))
 	call_deferred("_reset_run_flow")
+
+func _on_game_over_requested(reason: StringName) -> void:
+	_last_reset_reason = reason
+	_command_buffer.clear()
+	if _game_state_machine and _game_state_machine.has_method("enter_game_over"):
+		_game_state_machine.enter_game_over(reason)
 
 func _reset_run_flow() -> void:
 	# Clear local runtime state, reset global run state, and reload current scene.
@@ -558,6 +602,39 @@ func _log_debug(message: String) -> void:
 	if not debug_log_events:
 		return
 	print("[PlayerController] %s" % message)
+
+func _can_process_movement() -> bool:
+	if not _game_state_machine:
+		return true
+	if _game_state_machine.has_method("can_process_movement"):
+		return _game_state_machine.can_process_movement()
+	return true
+
+func _can_process_combat() -> bool:
+	if not _game_state_machine:
+		return true
+	if _game_state_machine.has_method("can_process_combat"):
+		return _game_state_machine.can_process_combat()
+	return true
+
+func _is_game_over_state() -> bool:
+	if not _game_state_machine:
+		return false
+	if _game_state_machine.has_method("is_game_over"):
+		return _game_state_machine.is_game_over()
+	return false
+
+func _toggle_pause_state() -> void:
+	if not _game_state_machine:
+		return
+	if _game_state_machine.has_method("toggle_pause"):
+		_game_state_machine.toggle_pause()
+
+func _request_retry_from_game_over() -> void:
+	if not _is_game_over_state():
+		return
+	if _game_manager and _game_manager.has_method("request_timeline_reset"):
+		_game_manager.request_timeline_reset(&"game_over_retry")
 
 func get_active_form_id() -> StringName:
 	return _active_form

@@ -5,6 +5,7 @@ extends Node
 
 signal guardian_locked(form_id: StringName)
 signal guardian_pool_changed(active_count: int)
+signal game_over_requested(reason: StringName)
 signal timeline_reset_requested(reason: StringName)
 
 const GUARDIAN_FORMS: Array[StringName] = [
@@ -16,8 +17,10 @@ const GUARDIAN_FORMS: Array[StringName] = [
 var persistent_flags: Dictionary = {}
 var _guardian_lock_map: Dictionary = {}
 var _last_reset_reason: StringName = &""
+var _game_state_machine: Node
 
 func _ready() -> void:
+	_game_state_machine = get_node_or_null("/root/GameStateMachine")
 	reset_run_state()
 
 func reset_run_state() -> void:
@@ -40,7 +43,13 @@ func lock_guardian(form_id: StringName) -> void:
 	guardian_pool_changed.emit(get_active_guardian_count())
 
 	if get_active_guardian_count() <= 0:
-		request_timeline_reset(&"no_guardians_remaining")
+		request_game_over(&"no_guardians_remaining")
+
+func request_game_over(reason: StringName) -> void:
+	_last_reset_reason = reason
+	if _game_state_machine and _game_state_machine.has_method("enter_game_over"):
+		_game_state_machine.enter_game_over(reason)
+	game_over_requested.emit(reason)
 
 func unlock_guardian(form_id: StringName) -> void:
 	if not _guardian_lock_map.has(form_id):
@@ -68,6 +77,8 @@ func get_locked_forms() -> Array[StringName]:
 func request_timeline_reset(reason: StringName) -> void:
 	# Stores reason so UI/debug tooling can report why the reset happened.
 	_last_reset_reason = reason
+	if _game_state_machine and _game_state_machine.has_method("set_playing"):
+		_game_state_machine.set_playing(&"timeline_reset")
 	timeline_reset_requested.emit(reason)
 
 func get_last_reset_reason() -> StringName:
