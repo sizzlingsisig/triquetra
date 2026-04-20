@@ -8,7 +8,7 @@
 
 [node name="Background" parent="." unique_id=2123297796 instance=ExtResource("1_0xm2m")]
 
-[node name="Enemy" parent="." unique_id=882156010 instance=ExtResource("3_h2yge")]
-
 [node name="Player" parent="." unique_id=1971314449 instance=ExtResource("1_ig7tw")]
-move_speed = 250.0
+position = Vector2(216, -89)
+
+[node name="Enemy" parent="." unique_id=882156010 instance=ExtResource("3_h2yge")]

@@ -1,46 +1,190 @@
 extends CharacterBody2D
+class_name Enemy
+
+@export var enemy_data: EnemyData
 
 @export var is_shielded: bool = false
 @export var is_arrow_skeleton: bool = false
 @export var enable_knight_attacks: bool = false
 @export var attack_interval: float = 1.6
+@export var attack_telegraph_time: float = 0.08
 @export var attack_active_time: float = 0.22
 @export var arrow_speed: float = 420.0
 @export var arrow_lifetime: float = 1.2
+@export var max_health: int = 2
+@export var enable_chase: bool = true
+@export var chase_speed: float = 90.0
+@export var chase_acceleration: float = 480.0
+@export var chase_stop_distance: float = 28.0
+@export var match_player_speed: bool = true
+@export var enable_patrol: bool = true
+@export var patrol_distance: float = 120.0
+@export var patrol_speed: float = 60.0
+@export var patrol_acceleration: float = 300.0
+@export var patrol_arrive_threshold: float = 8.0
+@export var patrol_wait_time: float = 0.35
+@export var attack_range: float = 40.0
+@export var post_attack_patrol_hold_time: float = 0.55
+@export var sprite_faces_left_when_not_flipped: bool = false
+@export var gravity_scale: float = 1.0
+@export var max_fall_speed: float = 1200.0
+@export var target_player_path: NodePath
+@export var vision_range: float = 190.0
+@export var vision_y_offset: float = 0.0
+@export var target_retry_delay: float = 0.4
 
-const ATTACK_ANIMATIONS: Array[StringName] = [
+const DEFAULT_ATTACK_ANIMATIONS: Array[StringName] = [
 	&"knight_attack1",
 	&"knight_attack2",
-	&"knight_attack3"
+	&"knight_attack3",
 ]
 
 @onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
+@onready var _vision_raycast: RayCast2D = get_node_or_null("AnimatedSprite2D/RayCast2D") as RayCast2D
 @onready var _enemy_attack_area: Area2D = $EnemyAttackArea
 @onready var _attack_timer: Timer = $AttackTimer
-@onready var _projectile_spawn: Node2D = get_node_or_null("ProjectileSpawn")
+@onready var _projectile_spawn: Node2D = get_node_or_null("ProjectileSpawn") as Node2D
+@onready var _health_component: EnemyHealthComponent = get_node_or_null("HealthComponent") as EnemyHealthComponent
+@onready var _combat_component: EnemyCombatComponent = get_node_or_null("CombatComponent") as EnemyCombatComponent
+@onready var _animation_component: EnemyAnimationComponent = get_node_or_null("AnimationComponent") as EnemyAnimationComponent
+@onready var _fx_component: EnemyFxComponent = get_node_or_null("FxComponent") as EnemyFxComponent
+@onready var _target_component: EnemyTargetComponent = get_node_or_null("TargetComponent") as EnemyTargetComponent
+@onready var _movement_component: EnemyMovementComponent = get_node_or_null("MovementComponent") as EnemyMovementComponent
+@onready var _projectile_component: EnemyProjectileComponent = get_node_or_null("ProjectileComponent") as EnemyProjectileComponent
+@onready var _event_component: EnemyEventComponent = get_node_or_null("EventComponent") as EnemyEventComponent
+@onready var _runtime_fsm: EnemyRuntimeFsm = get_node_or_null("RuntimeFsm") as EnemyRuntimeFsm
 
-var _attack_index: int = 0
-@export var max_health: int = 2
-var _current_health: int = 2
-var _attack_window_active: bool = false
+var _attack_animations: Array[StringName] = []
+var _melee_hit_applied_this_window: bool = false
 
 func _ready() -> void:
+	_ensure_components()
+	_apply_enemy_data()
+
 	if is_in_group("arrow_skeleton"):
 		is_arrow_skeleton = true
-	_current_health = max(max_health, 1)
 
-	if _attack_timer:
-		_attack_timer.wait_time = max(attack_interval, 0.2)
-		if enable_knight_attacks and _attack_timer.is_stopped():
-			_attack_timer.start()
-		if not enable_knight_attacks:
-			_attack_timer.stop()
+	if _health_component:
+		if not _health_component.died.is_connected(_on_health_died):
+			_health_component.died.connect(_on_health_died)
+		_health_component.setup(max_health)
 
-	if _enemy_attack_area:
-		_enemy_attack_area.monitoring = false
-		_enemy_attack_area.monitorable = enable_knight_attacks
+	if _combat_component:
+		if not _combat_component.counter_attack_triggered.is_connected(_counter_attack_player):
+			_combat_component.counter_attack_triggered.connect(_counter_attack_player)
+		_combat_component.setup(self, _enemy_attack_area, _attack_timer, attack_interval, enable_knight_attacks)
 
-	_play_idle()
+	if _animation_component:
+		_animation_component.setup(_sprite)
+	if _fx_component:
+		_fx_component.setup(self, _sprite)
+	if _movement_component:
+		_movement_component.setup(_sprite, _enemy_attack_area, sprite_faces_left_when_not_flipped)
+		if not _movement_component.facing_changed.is_connected(_on_movement_facing_changed):
+			_movement_component.facing_changed.connect(_on_movement_facing_changed)
+	if _target_component:
+		_target_component.setup(
+			self,
+			_vision_raycast,
+			target_player_path,
+			vision_range,
+			vision_y_offset,
+			target_retry_delay,
+			Callable(self, "_is_player_target")
+		)
+	if _projectile_component:
+		_projectile_component.setup(self, _sprite, _projectile_spawn)
+		if not _projectile_component.projectile_hit_target.is_connected(_on_arrow_projectile_hit):
+			_projectile_component.projectile_hit_target.connect(_on_arrow_projectile_hit)
+	if _event_component:
+		_event_component.setup()
+	if _runtime_fsm == null:
+		_runtime_fsm = EnemyRuntimeFsm.new()
+		_runtime_fsm.name = "RuntimeFsm"
+		add_child(_runtime_fsm)
+	_runtime_fsm.setup(self, _combat_component, _animation_component, _fx_component)
+	_sync_speed_with_player()
+	_update_vision_raycast_target()
+
+func _physics_process(delta: float) -> void:
+	if not is_on_floor():
+		velocity += get_gravity() * gravity_scale * delta
+		velocity.y = minf(velocity.y, max_fall_speed)
+	elif velocity.y > 0.0:
+		velocity.y = 0.0
+
+	if _target_component:
+		_target_component.physics_update()
+	_sync_speed_with_player()
+	_update_vision_raycast_target()
+	if _runtime_fsm:
+		_runtime_fsm.physics_update(delta)
+	move_and_slide()
+
+func _ensure_components() -> void:
+	if _health_component == null:
+		_health_component = EnemyHealthComponent.new()
+		_health_component.name = "HealthComponent"
+		add_child(_health_component)
+
+	if _combat_component == null:
+		_combat_component = EnemyCombatComponent.new()
+		_combat_component.name = "CombatComponent"
+		add_child(_combat_component)
+
+	if _animation_component == null:
+		_animation_component = EnemyAnimationComponent.new()
+		_animation_component.name = "AnimationComponent"
+		add_child(_animation_component)
+
+	if _fx_component == null:
+		_fx_component = EnemyFxComponent.new()
+		_fx_component.name = "FxComponent"
+		add_child(_fx_component)
+
+	if _target_component == null:
+		_target_component = EnemyTargetComponent.new()
+		_target_component.name = "TargetComponent"
+		add_child(_target_component)
+
+	if _movement_component == null:
+		_movement_component = EnemyMovementComponent.new()
+		_movement_component.name = "MovementComponent"
+		add_child(_movement_component)
+
+	if _projectile_component == null:
+		_projectile_component = EnemyProjectileComponent.new()
+		_projectile_component.name = "ProjectileComponent"
+		add_child(_projectile_component)
+
+	if _event_component == null:
+		_event_component = EnemyEventComponent.new()
+		_event_component.name = "EventComponent"
+		add_child(_event_component)
+
+	if _runtime_fsm == null:
+		_runtime_fsm = EnemyRuntimeFsm.new()
+		_runtime_fsm.name = "RuntimeFsm"
+		add_child(_runtime_fsm)
+
+func _apply_enemy_data() -> void:
+	if enemy_data:
+		is_shielded = enemy_data.is_shielded
+		is_arrow_skeleton = enemy_data.is_arrow_skeleton
+		# Keep explicit scene-level enable flag if set, while still allowing data-driven enable.
+		enable_knight_attacks = enemy_data.enable_attacks or enable_knight_attacks
+		max_health = enemy_data.max_health
+		attack_interval = enemy_data.attack_interval
+		attack_active_time = enemy_data.attack_active_time
+		arrow_speed = enemy_data.arrow_speed
+		arrow_lifetime = enemy_data.arrow_lifetime
+		attack_range = enemy_data.attack_range
+		_attack_animations = enemy_data.attack_animations.duplicate()
+	else:
+		_attack_animations = DEFAULT_ATTACK_ANIMATIONS.duplicate()
+
+	if _attack_animations.is_empty():
+		_attack_animations = DEFAULT_ATTACK_ANIMATIONS.duplicate()
 
 func _on_attack_hitbox_body_entered(body: Node) -> void:
 	if not _is_player_attack(body):
@@ -63,13 +207,14 @@ func _on_attack_hitbox_area_entered(area: Area2D) -> void:
 
 func receive_player_hit(attacker_form: StringName = &"Sword") -> void:
 	var damage: int = 0
+	var current_health: int = _health_component.get_current_health() if _health_component else max_health
 
 	if is_shielded:
 		match attacker_form:
 			&"Sword":
 				damage = 1
 			&"Spear":
-				damage = _current_health
+				damage = current_health
 			&"Bow":
 				damage = 1
 			_:
@@ -78,18 +223,47 @@ func receive_player_hit(attacker_form: StringName = &"Sword") -> void:
 		damage = 1
 
 	if damage <= 0:
-		_play_defend()
+		if _runtime_fsm:
+			_runtime_fsm.on_damage_blocked(_get_defend_recover_time())
 		return
 
-	_current_health = max(_current_health - damage, 0)
-	if _current_health <= 0:
-		_die()
+	_play_enemy_hit_fx()
+	if _event_component:
+		_event_component.emit_hit_stop(0.05)
+
+	var new_health: int = current_health
+	if _health_component:
+		new_health = _health_component.apply_damage(damage)
+	else:
+		new_health = max(current_health - damage, 0)
+
+	if new_health <= 0:
 		return
 
-	_play_hurt()
+	if _runtime_fsm:
+		_runtime_fsm.on_damage_hurt(_get_hurt_recover_time())
 
-	if _attack_window_active:
-		_counter_attack_player()
+	if _combat_component and _combat_component.is_attack_window_active():
+		if _runtime_fsm:
+			_runtime_fsm.on_counter_attack()
+		_combat_component.trigger_counter_attack()
+
+func _play_enemy_hit_fx() -> void:
+	var hit_position: Vector2 = _get_combat_origin_position(self)
+	if _fx_component:
+		_fx_component.spawn_hit_impact_fx(hit_position)
+	if _sprite == null:
+		return
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		return
+	var original_modulate: Color = _sprite.modulate
+	_sprite.modulate = Color(1.0, 0.65, 0.65, 1.0)
+	var timer: SceneTreeTimer = tree.create_timer(0.06)
+	timer.timeout.connect(func() -> void:
+		if is_instance_valid(_sprite):
+			_sprite.modulate = original_modulate
+	)
 
 func _is_player_attack(node: Node) -> bool:
 	if not node:
@@ -99,190 +273,131 @@ func _is_player_attack(node: Node) -> bool:
 func _on_attack_timer_timeout() -> void:
 	if not enable_knight_attacks:
 		return
-
-	_play_next_attack_animation()
-	_spawn_attack_fx()
-	if is_arrow_skeleton:
-		_spawn_arrow_projectile()
-		return
-	_activate_attack_area_window()
+	if _runtime_fsm:
+		_runtime_fsm.request_attack()
 
 func _on_enemy_attack_area_body_entered(body: Node) -> void:
 	if not _is_player_target(body):
 		return
-
-	_spawn_hit_impact_fx(body.global_position)
-	if body.has_method("shake_camera"):
-		body.shake_camera(4.0, 0.08)
-	if body.has_method("receive_enemy_hit"):
-		body.receive_enemy_hit()
-
-func _play_idle() -> void:
-	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(&"knight_idle"):
-		_sprite.play(&"knight_idle")
-
-func _play_defend() -> void:
-	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(&"knight_defend"):
-		_sprite.play(&"knight_defend")
-	_run_after(0.22, _play_idle)
-
-func _play_hurt() -> void:
-	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(&"knight_hurt"):
-		_sprite.play(&"knight_hurt")
-	_run_after(0.18, _play_idle)
+	_emit_melee_hit_once(body.global_position)
 
 func _play_next_attack_animation() -> void:
-	if not _sprite or not _sprite.sprite_frames:
+	if _animation_component:
+		if _animation_component.play_next_attack_animation(_attack_animations):
+			return
+	if _sprite == null or _sprite.sprite_frames == null or _attack_animations.is_empty():
 		return
-
-	for _attempt in range(ATTACK_ANIMATIONS.size()):
-		var animation_name: StringName = ATTACK_ANIMATIONS[_attack_index]
-		_attack_index = (_attack_index + 1) % ATTACK_ANIMATIONS.size()
+	for animation_name: StringName in _attack_animations:
 		if _sprite.sprite_frames.has_animation(animation_name):
 			_sprite.play(animation_name)
-			_run_after(0.35, _play_idle)
 			return
 
 func _activate_attack_area_window() -> void:
-	if not _enemy_attack_area:
+	if _combat_component == null:
 		return
-
-	_attack_window_active = true
-	_enemy_attack_area.monitoring = true
-	_run_after(max(attack_active_time, 0.05), _on_attack_area_window_timeout)
-
-func _spawn_guard_fx() -> void:
-	var particles := CPUParticles2D.new()
-	particles.one_shot = true
-	particles.amount = 10
-	particles.lifetime = 0.14
-	particles.explosiveness = 1.0
-	particles.spread = 55.0
-	particles.direction = Vector2(0.0, -1.0)
-	particles.initial_velocity_min = 65.0
-	particles.initial_velocity_max = 120.0
-	particles.modulate = Color(0.8, 0.92, 1.0, 0.85)
-	particles.position = Vector2(0.0, -12.0)
-	add_child(particles)
-	particles.emitting = true
-	_queue_free_after(particles, particles.lifetime + 0.2)
-
-func _spawn_attack_fx() -> void:
-	var particles := CPUParticles2D.new()
-	particles.one_shot = true
-	particles.amount = 14
-	particles.lifetime = 0.16
-	particles.explosiveness = 1.0
-	particles.spread = 30.0
-	particles.direction = Vector2(1.0 if not _sprite.flip_h else -1.0, -0.1)
-	particles.initial_velocity_min = 95.0
-	particles.initial_velocity_max = 165.0
-	particles.modulate = Color(1.0, 0.72, 0.55, 0.8)
-	particles.position = Vector2(-18.0 if _sprite.flip_h else 18.0, -10.0)
-	add_child(particles)
-	particles.emitting = true
-	_queue_free_after(particles, particles.lifetime + 0.2)
-
-func _spawn_hit_impact_fx(hit_position: Vector2) -> void:
-	var particles := CPUParticles2D.new()
-	particles.one_shot = true
-	particles.amount = 12
-	particles.lifetime = 0.12
-	particles.explosiveness = 1.0
-	particles.spread = 70.0
-	particles.direction = Vector2(0.0, -1.0)
-	particles.initial_velocity_min = 80.0
-	particles.initial_velocity_max = 145.0
-	particles.modulate = Color(1.0, 0.54, 0.42, 0.85)
-	particles.global_position = hit_position
-
-	var host: Node = get_parent()
-	if host:
-		host.add_child(particles)
+	_melee_hit_applied_this_window = false
+	_combat_component.open_attack_window(attack_active_time)
+	# Fallback for cases where monitoring is enabled while already overlapping the player.
+	var tree: SceneTree = get_tree()
+	if tree:
+		tree.physics_frame.connect(_apply_attack_overlap_fallback, CONNECT_ONE_SHOT)
 	else:
-		add_child(particles)
-	particles.emitting = true
-	_queue_free_after(particles, particles.lifetime + 0.2)
+		call_deferred("_apply_attack_overlap_fallback")
+
+func _apply_attack_overlap_fallback() -> void:
+	if _enemy_attack_area == null:
+		_apply_direct_target_melee_fallback()
+		return
+	for body: Node2D in _enemy_attack_area.get_overlapping_bodies():
+		if _is_player_target(body):
+			_emit_melee_hit_once(body.global_position)
+			return
+	_apply_direct_target_melee_fallback()
+
+func _apply_direct_target_melee_fallback() -> void:
+	var target: Node2D = _get_detected_player()
+	if target == null:
+		target = _get_target_player()
+	if target == null:
+		return
+	if not _is_player_target(target):
+		return
+	var self_x: float = _get_combat_origin_x(self)
+	var target_x: float = _get_combat_origin_x(target)
+	var distance_x: float = absf(target_x - self_x)
+	var effective_melee_range: float = maxf(attack_range, chase_stop_distance)
+	if distance_x > effective_melee_range:
+		return
+	# Keep a vertical sanity limit to avoid hitting targets on distant floors.
+	var self_y: float = _get_combat_origin_y(self)
+	var target_y: float = _get_combat_origin_y(target)
+	var distance_y: float = absf(target_y - self_y)
+	if distance_y > 96.0:
+		return
+	_emit_melee_hit_once(target.global_position)
+
+func _get_combat_origin_x(node: Node2D) -> float:
+	if node == null:
+		return 0.0
+	var shape: CollisionShape2D = node.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if shape and not shape.disabled:
+		return shape.global_position.x
+	return node.global_position.x
+
+func _get_combat_origin_position(node: Node2D) -> Vector2:
+	if node == null:
+		return Vector2.ZERO
+	var shape: CollisionShape2D = node.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if shape and not shape.disabled:
+		return shape.global_position
+	return node.global_position
+
+func _get_combat_origin_y(node: Node2D) -> float:
+	if node == null:
+		return 0.0
+	var shape: CollisionShape2D = node.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if shape and not shape.disabled:
+		return shape.global_position.y
+	return node.global_position.y
+
+func _emit_melee_hit_once(hit_position: Vector2) -> void:
+	if _melee_hit_applied_this_window:
+		return
+	_melee_hit_applied_this_window = true
+	if _fx_component:
+		_fx_component.spawn_hit_impact_fx(hit_position)
+	_emit_player_hit_event(hit_position, 4.0, 0.08)
 
 func _die() -> void:
-	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(&"knight_dead"):
-		_sprite.play(&"knight_dead")
-	if _enemy_attack_area:
-		_enemy_attack_area.monitoring = false
-		_enemy_attack_area.monitorable = false
-	if _attack_timer:
-		_attack_timer.stop()
-	_run_after(0.28, _queue_free_self)
+	if _combat_component:
+		_combat_component.set_attack_enabled(false)
+	else:
+		if _enemy_attack_area:
+			_enemy_attack_area.monitoring = false
+			_enemy_attack_area.monitorable = false
+		if _attack_timer:
+			_attack_timer.stop()
+	_run_after(_get_death_cleanup_delay(), _queue_free_self)
+
+func _on_health_died() -> void:
+	if _runtime_fsm:
+		_runtime_fsm.on_died()
+	_die()
 
 func _counter_attack_player() -> void:
-	var root_parent: Node = get_parent()
-	if not root_parent:
-		return
-	var player = root_parent.get_node_or_null("Player")
-	if player and player.has_method("receive_enemy_hit"):
-		player.receive_enemy_hit()
-		_spawn_hit_impact_fx(player.global_position)
-		if player.has_method("shake_camera"):
-			player.shake_camera(5.0, 0.1)
+	var hit_position: Vector2 = global_position
+	if _fx_component:
+		_fx_component.spawn_hit_impact_fx(hit_position)
+	_emit_player_hit_event(hit_position, 5.0, 0.1)
 
 func _spawn_arrow_projectile() -> void:
-	var arrow := Area2D.new()
-	arrow.name = "ArrowProjectile"
-	arrow.collision_layer = 32
-	arrow.collision_mask = 1
-	arrow.monitoring = true
-	arrow.monitorable = true
-	arrow.add_to_group("projectile")
-
-	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = Vector2(18.0, 5.0)
-	shape.shape = rect
-	arrow.add_child(shape)
-
-	var marker := Polygon2D.new()
-	marker.polygon = PackedVector2Array([
-		Vector2(-9.0, -2.5),
-		Vector2(7.0, -2.5),
-		Vector2(10.0, 0.0),
-		Vector2(7.0, 2.5),
-		Vector2(-9.0, 2.5)
-	])
-	marker.color = Color(0.9, 0.85, 0.72, 0.95)
-	arrow.add_child(marker)
-
-	var direction: Vector2 = Vector2.LEFT if _sprite.flip_h else Vector2.RIGHT
-	arrow.rotation = direction.angle()
-	arrow.global_position = _get_arrow_spawn_position(direction)
-
-	var host := get_parent()
-	if host:
-		host.add_child(arrow)
-	else:
-		add_child(arrow)
-
-	arrow.body_entered.connect(_on_arrow_body_entered.bind(weakref(arrow)))
-
-	var travel_distance = arrow_speed * max(arrow_lifetime, 0.2)
-	var target = arrow.global_position + (direction * travel_distance)
-	var travel_time = travel_distance / max(arrow_speed, 1.0)
-
-	var tween: Tween = arrow.create_tween()
-	tween.tween_property(arrow, "global_position", target, travel_time)
-	tween.finished.connect(_queue_free_weak.bind(weakref(arrow)))
-
-func _get_arrow_spawn_position(direction: Vector2) -> Vector2:
-	# Keep enemy arrow muzzle placement consistent with player bow spawn offsets.
-	if _projectile_spawn:
-		return _projectile_spawn.global_position
-	if _sprite:
-		return _sprite.global_position + Vector2(direction.x * 20.0, -8.0)
-	return global_position + Vector2(direction.x * 20.0, -8.0)
+	if _projectile_component == null:
+		return
+	_projectile_component.spawn_arrow(_is_facing_left(), arrow_speed, arrow_lifetime)
 
 func _on_attack_area_window_timeout() -> void:
-	if _enemy_attack_area:
-		_enemy_attack_area.monitoring = false
-	_attack_window_active = false
+	if _combat_component:
+		_combat_component.close_attack_window()
 
 func _is_player_target(node: Node) -> bool:
 	if not node:
@@ -300,30 +415,73 @@ func _run_after(delay_seconds: float, callback: Callable) -> void:
 	var timer: SceneTreeTimer = tree.create_timer(delay_seconds)
 	timer.timeout.connect(callback)
 
-func _queue_free_after(target: Node, delay_seconds: float) -> void:
-	if not target:
-		return
-	_run_after(delay_seconds, _queue_free_weak.bind(weakref(target)))
-
-func _queue_free_weak(target_ref: WeakRef) -> void:
-	var target: Object = target_ref.get_ref()
-	if target and is_instance_valid(target) and target is Node:
-		(target as Node).queue_free()
-
 func _queue_free_self() -> void:
 	if is_instance_valid(self):
 		queue_free()
 
-func _on_arrow_body_entered(body: Node, arrow_ref: WeakRef) -> void:
+func _update_vision_raycast_target() -> void:
+	if _target_component:
+		_target_component.set_facing_left(_is_facing_left())
+
+func _has_line_of_sight_to_player() -> bool:
+	if _target_component == null:
+		return false
+	return _target_component.has_line_of_sight()
+
+func _get_detected_player() -> Node2D:
+	if _target_component == null:
+		return null
+	return _target_component.get_detected_player()
+
+func _get_target_player() -> Node2D:
+	if _target_component == null:
+		return null
+	return _target_component.get_target_player()
+
+func _set_enemy_facing_from_direction(direction: float) -> void:
+	if _movement_component:
+		_movement_component.set_facing_from_direction(direction)
+	_update_vision_raycast_target()
+
+func _sync_speed_with_player() -> void:
+	if not match_player_speed or _movement_component == null or _target_component == null:
+		return
+	var target_player: Node2D = _target_component.get_target_player()
+	if not is_instance_valid(target_player):
+		return
+	var synced_speed: float = _movement_component.try_get_player_move_speed(target_player)
+	if synced_speed > 0.0:
+		chase_speed = synced_speed
+		patrol_speed = synced_speed
+
+func _is_facing_left() -> bool:
+	if _movement_component == null:
+		return false
+	return _movement_component.is_facing_left()
+
+func _on_arrow_projectile_hit(body: Node, hit_position: Vector2) -> void:
 	if not _is_player_target(body):
 		return
 
-	_spawn_hit_impact_fx(body.global_position)
-	if body.has_method("shake_camera"):
-		body.shake_camera(5.0, 0.1)
-	if body.has_method("receive_enemy_hit"):
-		body.receive_enemy_hit()
+	if _fx_component:
+		_fx_component.spawn_hit_impact_fx(hit_position)
+	_emit_player_hit_event(hit_position, 5.0, 0.1)
 
-	var arrow: Area2D = arrow_ref.get_ref() as Area2D
-	if arrow and is_instance_valid(arrow):
-		arrow.queue_free()
+func _emit_player_hit_event(hit_position: Vector2, camera_intensity: float, camera_duration: float) -> void:
+	if _event_component:
+		_event_component.emit_player_hit(hit_position, camera_intensity, camera_duration)
+
+func _on_movement_facing_changed(_is_left: bool) -> void:
+	_update_vision_raycast_target()
+
+func _get_defend_recover_time() -> float:
+	return enemy_data.defend_recover_time if enemy_data else 0.22
+
+func _get_hurt_recover_time() -> float:
+	return enemy_data.hurt_recover_time if enemy_data else 0.18
+
+func _get_attack_recover_time() -> float:
+	return enemy_data.attack_recover_time if enemy_data else 0.35
+
+func _get_death_cleanup_delay() -> float:
+	return enemy_data.death_cleanup_delay if enemy_data else 0.28

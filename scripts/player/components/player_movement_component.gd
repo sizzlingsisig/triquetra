@@ -16,6 +16,7 @@ var _is_jumping: bool = false
 var _jump_elapsed: float = 0.0
 var _jump_cooldown_remaining: float = 0.0
 var _current_jump_offset: Vector2 = Vector2.ZERO
+var _hit_control_lock_remaining: float = 0.0
 
 func setup(player: PlayerController) -> void:
     _player = player
@@ -33,6 +34,12 @@ func apply_gravity(delta: float) -> void:
     _player.velocity.y = minf(_player.velocity.y + (_gravity * delta), max_fall_speed)
 
 func apply_movement(delta: float) -> void:
+    if _hit_control_lock_remaining > 0.0:
+        _hit_control_lock_remaining = maxf(0.0, _hit_control_lock_remaining - delta)
+        # During hit reaction, preserve knockback momentum and decelerate smoothly.
+        _player.velocity.x = move_toward(_player.velocity.x, 0.0, ground_deceleration * 0.9 * delta)
+        return
+
     var input_direction := Vector2.ZERO
     if _player.input_buffer:
         input_direction.x = Input.get_axis(_player.input_buffer.action_move_left, _player.input_buffer.action_move_right)
@@ -104,6 +111,13 @@ func stop_jump() -> void:
         _player._guardian_sprite.scale = Vector2.ONE
         _player._apply_jump_offset_to_nodes()
 
+func apply_hit_reaction(knockback_velocity_x: float, control_lock_time: float = 0.12) -> void:
+    if _player == null:
+        return
+    _hit_control_lock_remaining = maxf(_hit_control_lock_remaining, maxf(control_lock_time, 0.0))
+    _player.velocity.x = knockback_velocity_x
+
 func reset() -> void:
     stop_jump()
     _jump_cooldown_remaining = 0.0
+    _hit_control_lock_remaining = 0.0

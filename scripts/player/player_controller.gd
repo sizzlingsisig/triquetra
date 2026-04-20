@@ -22,6 +22,7 @@ var runtime_fsm: PlayerRuntimeFsm
 
 var _game_manager: Node
 var _game_state_machine: Node
+var _event_bus: Node
 
 var _sprite_base_position: Vector2 = Vector2.ZERO
 var _body_collision_base_position: Vector2 = Vector2.ZERO
@@ -29,6 +30,9 @@ var _attack_area_base_position: Vector2 = Vector2.ZERO
 var _facing_left: bool = false
 var _last_reset_reason: StringName = &""
 var _is_resetting: bool = false
+var _hit_stop_active: bool = false
+var _hit_stop_generation: int = 0
+var _hit_stop_original_time_scale: float = 1.0
 
 @onready var _camera: Camera2D = get_node_or_null("Camera2D")
 
@@ -40,10 +44,15 @@ func shake_camera(intensity: float = 8.0, duration: float = 0.15) -> void:
 		tween.tween_property(_camera, "offset", original_offset, duration)
 
 func _ready() -> void:
+	if not is_in_group("player"):
+		add_to_group("player")
+
 	_game_manager = get_node_or_null("/root/GameManager")
 	_game_state_machine = get_node_or_null("/root/GameStateMachine")
+	_event_bus = get_node_or_null("/root/EventBus")
 
 	_connect_game_manager_signals()
+	_connect_event_bus_signals()
 	if _game_state_machine and _game_state_machine.has_method("set_playing"):
 		_game_state_machine.set_playing(&"run_start")
 
@@ -88,6 +97,14 @@ func _ready() -> void:
 	runtime_fsm.update(0.0)
 
 func _physics_process(delta: float) -> void:
+	if _is_game_over_state():
+		velocity = Vector2.ZERO
+		if input_buffer:
+			input_buffer.clear()
+		if movement_component:
+			movement_component.stop_jump()
+		return
+
 	if _can_process_movement():
 		movement_component.apply_gravity(delta)
 		movement_component.apply_movement(delta)
@@ -122,6 +139,52 @@ func _connect_game_manager_signals() -> void:
 		_game_manager.timeline_reset_requested.connect(_on_timeline_reset_requested)
 	if _game_manager.has_signal("game_over_requested") and not _game_manager.game_over_requested.is_connected(_on_game_over_requested):
 		_game_manager.game_over_requested.connect(_on_game_over_requested)
+
+func _connect_event_bus_signals() -> void:
+	if not _event_bus:
+		return
+	if not _event_bus.enemy_hit_player.is_connected(_on_enemy_hit_player):
+		_event_bus.enemy_hit_player.connect(_on_enemy_hit_player)
+	if _event_bus.has_signal("enemy_hit_stop_requested") and not _event_bus.enemy_hit_stop_requested.is_connected(_on_enemy_hit_stop_requested):
+		_event_bus.enemy_hit_stop_requested.connect(_on_enemy_hit_stop_requested)
+
+func _on_enemy_hit_player(hit_position: Vector2, camera_intensity: float, camera_duration: float) -> void:
+	if not _can_process_combat() or _is_game_over_state():
+		return
+	_play_player_hit_fx(hit_position)
+	shake_camera(camera_intensity, camera_duration)
+	receive_enemy_hit(hit_position)
+
+func _on_enemy_hit_stop_requested(duration: float) -> void:
+	if not _can_process_combat() or _is_game_over_state():
+		return
+	_request_hit_stop(duration)
+
+func _request_hit_stop(duration: float) -> void:
+	if duration <= 0.0:
+		return
+	_hit_stop_generation += 1
+	var generation: int = _hit_stop_generation
+	if not _hit_stop_active:
+		_hit_stop_active = true
+		_hit_stop_original_time_scale = Engine.time_scale
+		Engine.time_scale = minf(Engine.time_scale, 0.08)
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		_end_hit_stop()
+		return
+	var timer: SceneTreeTimer = tree.create_timer(maxf(duration, 0.01), true, false, true)
+	timer.timeout.connect(func() -> void:
+		if generation != _hit_stop_generation:
+			return
+		_end_hit_stop()
+	)
+
+func _end_hit_stop() -> void:
+	if not _hit_stop_active:
+		return
+	_hit_stop_active = false
+	Engine.time_scale = _hit_stop_original_time_scale
 
 func _on_manager_guardian_locked(form_id: StringName) -> void:
 	form_manager.handle_guardian_locked(form_id, &"manager")
@@ -163,8 +226,8 @@ func _try_start_jump() -> bool:
 func _set_attack_area_active(is_active: bool) -> void:
 	combat_component.set_attack_area_active(is_active)
 
-func receive_enemy_hit() -> void:
-	combat_component.receive_enemy_hit()
+func receive_enemy_hit(hit_position: Vector2 = Vector2.INF) -> void:
+	combat_component.receive_enemy_hit(hit_position)
 
 func _set_sprite_facing(facing_left: bool) -> void:
 	_facing_left = facing_left
@@ -218,9 +281,58 @@ func _on_game_over_requested(reason: StringName) -> void:
 	_last_reset_reason = reason
 	if runtime_fsm:
 		runtime_fsm.transition_to(PlayerRuntimeFsm.PlayerState.DEAD, &"game_over")
+	_play_final_death_animation()
+	_set_attack_area_active(false)
+	velocity = Vector2.ZERO
 	input_buffer.clear()
 	if _game_state_machine and _game_state_machine.has_method("enter_game_over"):
 		_game_state_machine.enter_game_over(reason)
+
+func _play_player_hit_fx(hit_position: Vector2) -> void:
+	if _guardian_sprite:
+		var original_modulate: Color = _guardian_sprite.modulate
+		_guardian_sprite.modulate = Color(1.0, 0.72, 0.72, 1.0)
+		var tree: SceneTree = get_tree()
+		if tree:
+			var timer: SceneTreeTimer = tree.create_timer(0.07)
+			timer.timeout.connect(func() -> void:
+				if is_instance_valid(_guardian_sprite):
+					_guardian_sprite.modulate = original_modulate
+			)
+
+	var host: Node = get_parent()
+	if host == null:
+		host = self
+	var particles: CPUParticles2D = CPUParticles2D.new()
+	particles.one_shot = true
+	particles.amount = 10
+	particles.lifetime = 0.11
+	particles.explosiveness = 1.0
+	particles.spread = 65.0
+	particles.direction = Vector2(0.0, -1.0)
+	particles.initial_velocity_min = 78.0
+	particles.initial_velocity_max = 135.0
+	particles.modulate = Color(1.0, 0.58, 0.5, 0.85)
+	particles.global_position = hit_position if hit_position.is_finite() else global_position
+	host.add_child(particles)
+	particles.emitting = true
+	var tree2: SceneTree = get_tree()
+	if tree2:
+		var cleanup_timer: SceneTreeTimer = tree2.create_timer(particles.lifetime + 0.2)
+		cleanup_timer.timeout.connect(func() -> void:
+			if is_instance_valid(particles):
+				particles.queue_free()
+		)
+
+func _play_final_death_animation() -> void:
+	if form_manager == null:
+		return
+	var active_form: StringName = form_manager.get_active_form_id()
+	if active_form == &"":
+		return
+	var dead_animation: StringName = StringName(String(active_form).to_lower() + "_dead")
+	if has_guardian_animation(dead_animation):
+		play_guardian_animation(dead_animation)
 
 func _reset_run_flow() -> void:
 	if not is_inside_tree():
@@ -322,4 +434,4 @@ func get_arrow_spawn_position() -> Vector2:
 	if not _guardian_sprite:
 		return global_position
 	var direction := get_facing_direction()
-	return _guardian_sprite.global_position + Vector2(direction.x * 20.0, 4.0)
+	return _guardian_sprite.global_position + Vector2(direction.x * 20.0, 10.0)

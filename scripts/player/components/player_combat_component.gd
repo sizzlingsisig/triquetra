@@ -1,6 +1,9 @@
 extends Node
 class_name PlayerCombatComponent
 
+@export var enemy_hit_knockback_speed: float = 220.0
+@export var enemy_hit_control_lock_time: float = 0.12
+
 var _player: PlayerController
 var _attack_window_hit_ids: Dictionary = {}
 
@@ -51,9 +54,20 @@ func _on_attack_area_entered(overlap: Area2D) -> void:
     if enemy_node.has_method("receive_player_hit"):
         enemy_node.receive_player_hit(_player.form_manager.get_active_form_id() if _player.form_manager else &"")
 
-func receive_enemy_hit() -> void:
+func receive_enemy_hit(hit_position: Vector2 = Vector2.INF) -> void:
+    _apply_enemy_hit_knockback(hit_position)
     if not _player.form_manager:
         return
     var active_state: Node = _player.form_manager.get_active_state()
     if active_state and active_state.has_method("receive_lethal_damage"):
         active_state.receive_lethal_damage()
+
+func _apply_enemy_hit_knockback(hit_position: Vector2) -> void:
+    if _player == null or _player.movement_component == null:
+        return
+    var direction_sign: float = 1.0
+    if hit_position.is_finite():
+        direction_sign = signf(_player.global_position.x - hit_position.x)
+    if absf(direction_sign) <= 0.01:
+        direction_sign = 1.0 if _player._facing_left else -1.0
+    _player.movement_component.apply_hit_reaction(direction_sign * enemy_hit_knockback_speed, enemy_hit_control_lock_time)

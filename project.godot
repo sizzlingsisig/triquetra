@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 GameManager="*res://scripts/autoload/game_manager.gd"
 GameStateMachine="*res://scripts/autoload/game_state_machine.gd"
+EventBus="*res://scripts/autoload/event_bus.gd"
 
 [display]
 

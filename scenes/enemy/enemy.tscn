@@ -11,7 +11,16 @@
 [ext_resource type="Texture2D" uid="uid://clc3708ckikp5" path="res://assets/enemy_sprites/Knight_2/Protect.png" id="8_prup0"]
 [ext_resource type="Texture2D" uid="uid://xwqqcwit1aht" path="res://assets/enemy_sprites/Knight_2/Run.png" id="9_dxjon"]
 [ext_resource type="Texture2D" uid="uid://dva4su7qs55wb" path="res://assets/enemy_sprites/Knight_2/Run+Attack.png" id="10_f5q6l"]
+[ext_resource type="Script" uid="uid://ytbnnpj7deok" path="res://scripts/enemy/components/enemy_animation_component.gd" id="enemy_animation_component_script"]
+[ext_resource type="Script" uid="uid://e24psss4vvhi" path="res://scripts/enemy/components/enemy_combat_component.gd" id="enemy_combat_component_script"]
+[ext_resource type="Script" uid="uid://m1wkhwf3k7kn" path="res://scripts/enemy/components/enemy_event_component.gd" id="enemy_event_component_script"]
+[ext_resource type="Script" uid="uid://5yhl7d4pbrtl" path="res://scripts/enemy/components/enemy_fx_component.gd" id="enemy_fx_component_script"]
+[ext_resource type="Script" uid="uid://cut8qeegd4gtj" path="res://scripts/enemy/components/enemy_health_component.gd" id="enemy_health_component_script"]
+[ext_resource type="Script" uid="uid://bcj80oo4nr4wd" path="res://scripts/enemy/components/enemy_movement_component.gd" id="enemy_movement_component_script"]
+[ext_resource type="Script" uid="uid://c2mqatpn2ct38" path="res://scripts/enemy/components/enemy_projectile_component.gd" id="enemy_projectile_component_script"]
+[ext_resource type="Script" uid="uid://cd4hdox68tvcx" path="res://scripts/enemy/enemy_runtime_fsm.gd" id="enemy_runtime_fsm_script"]
 [ext_resource type="Script" uid="uid://dk0pk2kqqfcsk" path="res://scripts/enemy/enemy.gd" id="enemy_script"]
+[ext_resource type="Script" uid="uid://bp38mdgm5otg" path="res://scripts/enemy/components/enemy_target_component.gd" id="enemy_target_component_script"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_8ed2q"]
 atlas = ExtResource("1_hvxgb")
@@ -233,7 +242,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"knight_attack1",
-"speed": 5.0
+"speed": 15.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -250,7 +259,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"knight_attack2",
-"speed": 5.0
+"speed": 15.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -267,7 +276,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"knight_attack3",
-"speed": 5.0
+"speed": 15.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -290,7 +299,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"knight_dead",
-"speed": 5.0
+"speed": 15.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -310,7 +319,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"knight_defend",
-"speed": 5.0
+"speed": 15.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -319,7 +328,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_ktajj")
 }],
-"loop": true,
+"loop": false,
 "name": &"knight_hurt",
 "speed": 5.0
 }, {
@@ -395,7 +404,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"knight_run",
-"speed": 5.0
+"speed": 10.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -418,35 +427,41 @@ animations = [{
 }],
 "loop": true,
 "name": &"knight_run+attack",
-"speed": 5.0
+"speed": 10.0
 }]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_peoo5"]
 size = Vector2(27, 78)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_enemy_attack"]
-size = Vector2(56, 42)
+size = Vector2(71.5, 42)
 
 [node name="Enemy" type="CharacterBody2D" unique_id=882156010]
+position = Vector2(920, 322)
+collision_layer = 26
+collision_mask = 101
 script = ExtResource("enemy_script")
-is_shielded = true
 enable_knight_attacks = true
+metadata/_edit_group_ = true
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1605494767]
 texture_filter = 1
-position = Vector2(955, 417)
+position = Vector2(-48.5, -45)
 scale = Vector2(1.5, 1.5)
 sprite_frames = SubResource("SpriteFrames_10cgr")
-animation = &"knight_attack3"
+animation = &"knight_run+attack"
 autoplay = "knight_idle"
+frame_progress = 0.91982216
 flip_h = true
 
+[node name="RayCast2D" type="RayCast2D" parent="AnimatedSprite2D" unique_id=1649980102]
+position = Vector2(16.666668, 8.666667)
+target_position = Vector2(-145.33337, 56)
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1694778899]
-position = Vector2(1003.5, 462)
 shape = SubResource("RectangleShape2D_peoo5")
 
 [node name="AttackHitbox" type="Area2D" parent="." unique_id=2000000000]
-position = Vector2(1003.5, 462)
 collision_layer = 8
 collision_mask = 36
 
@@ -454,15 +469,43 @@ collision_mask = 36
 shape = SubResource("RectangleShape2D_peoo5")
 
 [node name="EnemyAttackArea" type="Area2D" parent="." unique_id=2000000004]
-position = Vector2(972, 440)
+position = Vector2(-31.5, -22)
 collision_layer = 16
-monitoring = false
+collision_mask = 5
 
 [node name="EnemyAttackCollisionShape2D" type="CollisionShape2D" parent="EnemyAttackArea" unique_id=2000000005]
+position = Vector2(-7.75, 0)
 shape = SubResource("RectangleShape2D_enemy_attack")
 
 [node name="AttackTimer" type="Timer" parent="." unique_id=2000000006]
 wait_time = 1.6
+
+[node name="HealthComponent" type="Node" parent="." unique_id=1034325776]
+script = ExtResource("enemy_health_component_script")
+
+[node name="CombatComponent" type="Node" parent="." unique_id=1459282701]
+script = ExtResource("enemy_combat_component_script")
+
+[node name="AnimationComponent" type="Node" parent="." unique_id=809005366]
+script = ExtResource("enemy_animation_component_script")
+
+[node name="FxComponent" type="Node" parent="." unique_id=1608830371]
+script = ExtResource("enemy_fx_component_script")
+
+[node name="TargetComponent" type="Node" parent="." unique_id=2000000010]
+script = ExtResource("enemy_target_component_script")
+
+[node name="MovementComponent" type="Node" parent="." unique_id=2000000011]
+script = ExtResource("enemy_movement_component_script")
+
+[node name="ProjectileComponent" type="Node" parent="." unique_id=2000000012]
+script = ExtResource("enemy_projectile_component_script")
+
+[node name="EventComponent" type="Node" parent="." unique_id=2000000013]
+script = ExtResource("enemy_event_component_script")
+
+[node name="RuntimeFsm" type="Node" parent="." unique_id=1072532518]
+script = ExtResource("enemy_runtime_fsm_script")
 
 [connection signal="area_entered" from="AttackHitbox" to="." method="_on_attack_hitbox_area_entered"]
 [connection signal="body_entered" from="AttackHitbox" to="." method="_on_attack_hitbox_body_entered"]

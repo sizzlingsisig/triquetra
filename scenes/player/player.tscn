@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://ctn4vu4xt07od" path="res://scripts/player/components/player_animation_manager.gd" id="1_1fu51"]
 [ext_resource type="Script" uid="uid://oqip088l04fo" path="res://scripts/player/components/player_debug_widget.gd" id="1_ogb84"]
 [ext_resource type="Script" uid="uid://bo648mtmmdcdx" path="res://scripts/player/states/state_sword.gd" id="2_5168u"]
-[ext_resource type="PackedScene" path="res://scenes/player/arrow_projectile.tscn" id="2_cq2fa"]
+[ext_resource type="PackedScene" uid="uid://cchmaq5hxmvc6" path="res://scenes/player/arrow_projectile.tscn" id="2_cq2fa"]
 [ext_resource type="Texture2D" uid="uid://dbe7rvya0r81b" path="res://assets/skeleton_sprites/Skeleton_Archer/Shot_1.png" id="2_gx1jg"]
 [ext_resource type="Texture2D" uid="uid://dd0yw7s8f3ceq" path="res://assets/skeleton_sprites/Skeleton_Archer/Evasion.png" id="2_ugbui"]
 [ext_resource type="Script" uid="uid://mwq8fuoqfllt" path="res://scripts/player/states/state_spear.gd" id="3_l4tkp"]
@@ -1120,9 +1120,12 @@ script = ExtResource("input_buffer_script")
 
 [node name="MovementComponent" type="Node" parent="." unique_id=636256764]
 script = ExtResource("movement_component_script")
+jump_height = 100.0
 
 [node name="CombatComponent" type="Node" parent="." unique_id=1140289070]
 script = ExtResource("combat_component_script")
+enemy_hit_knockback_speed = 400.0
+enemy_hit_control_lock_time = 0.5
 
 [node name="FormManager" type="Node" parent="." unique_id=444763491]
 script = ExtResource("form_manager_script")
