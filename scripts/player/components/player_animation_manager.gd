@@ -90,6 +90,9 @@ func update_locomotion(velocity: Vector2, delta: float) -> void:
 func is_busy_with_action_animation() -> bool:
 	return not _current_action_animation.is_empty()
 
+func get_current_action_animation() -> StringName:
+	return _current_action_animation
+
 func _ensure_attack_timeline_player() -> void:
 	_attack_timeline_player = get_node_or_null("AttackWindowTimeline") as AnimationPlayer
 	if _attack_timeline_player:

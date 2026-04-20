@@ -27,6 +27,10 @@
 [ext_resource type="Texture2D" uid="uid://cgcdyf7a81sd" path="res://assets/skeleton_sprites/Skeleton_Warrior/Attack_3.png" id="22_vo27k"]
 [ext_resource type="Texture2D" uid="uid://b263ahh6vp0wi" path="res://assets/skeleton_sprites/Skeleton_Warrior/Dead.png" id="23_genst"]
 [ext_resource type="Texture2D" uid="uid://rr2p3735vmty" path="res://assets/skeleton_sprites/Skeleton_Warrior/Run+attack.png" id="27_ttakn"]
+[ext_resource type="Script" uid="uid://bd535te66dxib" path="res://scripts/player/components/player_combat_component.gd" id="combat_component_script"]
+[ext_resource type="Script" uid="uid://bj44jbrxwex0h" path="res://scripts/player/components/player_form_manager.gd" id="form_manager_script"]
+[ext_resource type="Script" uid="uid://dljd4vjuchnad" path="res://scripts/player/components/player_input_buffer.gd" id="input_buffer_script"]
+[ext_resource type="Script" uid="uid://c6uuseajpa126" path="res://scripts/player/components/player_movement_component.gd" id="movement_component_script"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_ttakn"]
 atlas = ExtResource("5_4hvnv")
@@ -1105,10 +1109,23 @@ animations = [{
 size = Vector2(15.333332, 48.000008)
 
 [node name="Player" type="CharacterBody2D" unique_id=1971314449]
-position = Vector2(0, 9)
+position = Vector2(0, -56)
 scale = Vector2(1.5, 1.5)
+collision_mask = 90
 script = ExtResource("1_1d8qn")
-jump_height = 150.0
+metadata/_edit_group_ = true
+
+[node name="InputBuffer" type="Node" parent="." unique_id=1093783796]
+script = ExtResource("input_buffer_script")
+
+[node name="MovementComponent" type="Node" parent="." unique_id=636256764]
+script = ExtResource("movement_component_script")
+
+[node name="CombatComponent" type="Node" parent="." unique_id=1140289070]
+script = ExtResource("combat_component_script")
+
+[node name="FormManager" type="Node" parent="." unique_id=444763491]
+script = ExtResource("form_manager_script")
 metadata/_edit_group_ = true
 
 [node name="GuardianSprite" type="AnimatedSprite2D" parent="." unique_id=683216106]
