@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://bqj6umh3fqhcv" path="res://scenes/background.tscn" id="1_0xm2m"]
 [ext_resource type="PackedScene" uid="uid://ch63bo6286f7" path="res://scenes/player/player.tscn" id="1_ig7tw"]
 [ext_resource type="PackedScene" uid="uid://dbu1gub03sjwu" path="res://scenes/enemy/enemy.tscn" id="3_h2yge"]
+[ext_resource type="Script" path="res://scripts/narrative_trigger.gd" id="4_narrative_trigger"]
 
 [node name="Main" type="Node2D" unique_id=518299312]
 
@@ -12,3 +13,6 @@
 position = Vector2(216, -89)
 
 [node name="Enemy" parent="." unique_id=882156010 instance=ExtResource("3_h2yge")]
+
+[node name="NarrativeTrigger" type="Node" parent="."]
+script = ExtResource("4_narrative_trigger")

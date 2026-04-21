@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+DialogueManager="*res://scripts/autoload/dialogue_manager.gd"
 GameManager="*res://scripts/autoload/game_manager.gd"
 GameStateMachine="*res://scripts/autoload/game_state_machine.gd"
 EventBus="*res://scripts/autoload/event_bus.gd"
