@@ -34,7 +34,7 @@ func handle_action(cmd: StringName) -> bool:
 					_controller.play_animation(&"block")
 					_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
 				&"Spear":
-					_controller.play_animation(&"special")
+					_controller.play_animation(&"run_attack")
 					_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
 			return true
 		Fsm.COMMAND_JUMP:

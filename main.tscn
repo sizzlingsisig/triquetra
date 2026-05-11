@@ -2,18 +2,12 @@
 
 [ext_resource type="PackedScene" uid="uid://bqj6umh3fqhcv" path="res://scenes/background.tscn" id="1_0xm2m"]
 [ext_resource type="PackedScene" uid="uid://dejpatrhwmn30" path="res://scenes/player/player.tscn" id="2_player"]
-[ext_resource type="PackedScene" uid="uid://bi8mlgaicsn3m" path="res://scenes/ui/player_state_tracker.tscn" id="3_h2yge"]
 
 [node name="Main" type="Node2D" unique_id=518299312]
 
 [node name="Background" parent="." unique_id=2123297796 instance=ExtResource("1_0xm2m")]
 
 [node name="Player" parent="." unique_id=1971314449 instance=ExtResource("2_player")]
-position = Vector2(237, 324)
-
-[node name="Camera2D" parent="Player" index="0" unique_id=574430208]
-position = Vector2(343, -7)
-
-[node name="StateTracker" parent="." unique_id=1700420551 instance=ExtResource("3_h2yge")]
+position = Vector2(47, 358)
 
 [editable path="Player"]

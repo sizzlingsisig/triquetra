@@ -43,6 +43,6 @@ func _on_animation_finished() -> void:
 
 func physics_update(delta: float) -> void:
 	if _movement:
-		_movement.apply_movement(delta)
+		_movement.apply_movement(delta, 0.5)
 	if _animation_finished:
 		_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"animation_finished")

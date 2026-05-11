@@ -41,5 +41,7 @@ func _on_animation_finished() -> void:
 
 func physics_update(delta: float) -> void:
 	_controller.velocity.x = 0.0
+	if not _controller.is_on_floor() and _movement:
+		_movement.apply_gravity(delta)
 	if _animation_finished:
 		_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"animation_finished")

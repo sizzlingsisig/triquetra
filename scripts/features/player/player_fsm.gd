@@ -26,9 +26,15 @@ const COMMAND_SWAP_PREV: StringName = &"swap_prev"
 ## [param reason] describes what caused the transition.
 signal state_changed(from: int, to: int, reason: StringName)
 
+const COMMAND_COOLDOWNS: Dictionary = {
+	COMMAND_PRIMARY_ATTACK: 0.15,
+	COMMAND_SPECIAL: 2.0,
+}
+
 var _state: int = PlayerStateNode.IDLE
 var _states: Dictionary = {}
 var _controller: PlayerController
+var _command_cooldowns: Dictionary = {}
 
 func setup(controller: PlayerController) -> void:
 	_controller = controller
@@ -50,13 +56,33 @@ func physics_update(delta: float) -> void:
 func execute_command(cmd: StringName) -> bool:
 	if _state == PlayerStateNode.DEAD or _state == PlayerStateNode.STUNNED:
 		return false
+	# Only apply cooldown when transitioning FROM a neutral state (IDLE/RUNNING/JUMPING)
+	# so combo presses during attack states are not blocked.
+	if _is_neutral_state() and _is_command_on_cooldown(cmd):
+		return false
 	var state: PlayerStateNode = _states.get(_state)
 	if state and state.can_accept_command(cmd):
 		var handled: bool = state.handle_action(cmd)
 		if handled:
+			_mark_command_used(cmd)
 			_update_state(cmd)
 		return handled
 	return false
+
+func _is_neutral_state() -> bool:
+	return _state == PlayerStateNode.IDLE or _state == PlayerStateNode.RUNNING or _state == PlayerStateNode.JUMPING
+
+func _is_command_on_cooldown(cmd: StringName) -> bool:
+	var cd: float = COMMAND_COOLDOWNS.get(cmd, 0.0)
+	if cd <= 0.0:
+		return false
+	var last_use: float = _command_cooldowns.get(cmd, -INF)
+	return Time.get_ticks_msec() / 1000.0 - last_use < cd
+
+func _mark_command_used(cmd: StringName) -> void:
+	var cd: float = COMMAND_COOLDOWNS.get(cmd, 0.0)
+	if cd > 0.0:
+		_command_cooldowns[cmd] = Time.get_ticks_msec() / 1000.0
 
 func force_state(next_state: int, reason: StringName) -> void:
 	if _state == next_state:

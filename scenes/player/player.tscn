@@ -8,16 +8,17 @@
 [node name="Player" type="Node2D" unique_id=1051468559]
 metadata/_edit_group_ = true
 
-[node name="Camera2D" type="Camera2D" parent="." unique_id=574430208]
-
 [node name="FormManager" type="Node" parent="." unique_id=1186792466]
 script = ExtResource("1_8afob")
 
 [node name="PlayerSword" parent="FormManager" unique_id=1075764618 instance=ExtResource("2_dovo2")]
 position = Vector2(25, 150)
+sprite_scale = 1.0
 
 [node name="PlayerBow" parent="FormManager" unique_id=930909498 instance=ExtResource("3_gmlin")]
 position = Vector2(25, 150)
+sprite_scale = 1.0
 
 [node name="PlayerSpear" parent="FormManager" unique_id=690993522 instance=ExtResource("4_lvxji")]
 position = Vector2(25, 150)
+sprite_scale = 1.0

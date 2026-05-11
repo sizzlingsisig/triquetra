@@ -23,9 +23,16 @@ func handle_action(cmd: StringName) -> bool:
 				_controller.spawn_hitbox()
 			return true
 		Fsm.COMMAND_SPECIAL:
-			if _controller.form_id == &"Bow":
-				_controller.play_animation(&"evasion")
-				_fsm.force_state(Fsm.PlayerStateNode.EVASION, cmd)
+			match _controller.form_id:
+				&"Bow":
+					_controller.play_animation(&"evasion")
+					_fsm.force_state(Fsm.PlayerStateNode.EVASION, cmd)
+				&"Spear":
+					_controller.play_animation(&"run_attack")
+					_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
+				&"Sword":
+					_controller.play_animation(&"block")
+					_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
 			return true
 	return false
 

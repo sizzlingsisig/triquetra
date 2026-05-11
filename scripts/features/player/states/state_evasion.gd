@@ -34,7 +34,7 @@ func enter(_prev: int) -> void:
 func exit(_next: int) -> void:
 	var sprite: AnimatedSprite2D = _controller.get_sprite()
 	if sprite:
-		sprite.material = null
+		_motion_blur.set_shader_parameter(&"intensity", 0.0)
 		if sprite.animation_finished.is_connected(_on_animation_finished):
 			sprite.animation_finished.disconnect(_on_animation_finished)
 
@@ -48,6 +48,8 @@ func _on_animation_finished() -> void:
 	_animation_finished = true
 
 func physics_update(delta: float) -> void:
+	if not _controller.is_on_floor() and _movement:
+		_movement.apply_gravity(delta)
 	if _animation_finished:
 		_controller.velocity.x = move_toward(_controller.velocity.x, 0.0, DASH_SPEED * delta)
 		_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"animation_finished")

@@ -27,6 +27,7 @@ func _initialize() -> void:
 				_active_player = child
 				_enable_player(child)
 				child.enter_idle()
+				active_player_changed.emit(child)
 			else:
 				_disable_player(child)
 	_initialized = true
