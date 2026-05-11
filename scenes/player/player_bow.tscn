@@ -7,6 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://dd0yw7s8f3ceq" path="res://assets/skeleton_sprites/Skeleton_Archer/Evasion.png" id="5"]
 [ext_resource type="Texture2D" uid="uid://clylgare108j2" path="res://assets/skeleton_sprites/Skeleton_Archer/Dead.png" id="6"]
 [ext_resource type="Script" uid="uid://chxcyy4adxpck" path="res://scripts/features/player/components/player_movement_component.gd" id="17_5eoj4"]
+[ext_resource type="Script" uid="uid://c8ggubokpxwwx" path="res://scripts/features/player/states/state_switching.gd" id="17_jlo4l"]
 [ext_resource type="Script" uid="uid://8714nlvefq3m" path="res://scripts/features/combat/hurtbox.gd" id="hurtbox_script"]
 [ext_resource type="Script" uid="uid://dik05s7cacxg5" path="res://scripts/features/player/components/player_input_buffer.gd" id="input_buffer_script"]
 [ext_resource type="Script" uid="uid://cgroxc0bypajt" path="res://scripts/features/player/player_controller.gd" id="player_controller_script"]
@@ -445,6 +446,7 @@ radius = 6.0
 [node name="PlayerBow" type="CharacterBody2D" unique_id=930909498]
 collision_mask = 70
 script = ExtResource("player_controller_script")
+form_id = &"Bow"
 
 [node name="Sprite" type="AnimatedSprite2D" parent="." unique_id=1463030910]
 position = Vector2(0, -40)
@@ -454,8 +456,6 @@ animation = &"idle"
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1555243672]
 position = Vector2(-2, -5)
 shape = SubResource("shape")
-
-[node name="Camera2D" type="Camera2D" parent="." unique_id=2007774562]
 
 [node name="Hurtbox" type="Area2D" parent="." unique_id=1740479908]
 script = ExtResource("hurtbox_script")
@@ -498,6 +498,9 @@ script = ExtResource("state_jumping_script")
 
 [node name="StateDead" type="Node" parent="Fsm" unique_id=2000000106]
 script = ExtResource("state_dead_script")
+
+[node name="StateSwitching" type="Node" parent="Fsm" unique_id=953415323]
+script = ExtResource("17_jlo4l")
 
 [node name="MovementComponent" type="Node" parent="." unique_id=425040645]
 script = ExtResource("17_5eoj4")

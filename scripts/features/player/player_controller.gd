@@ -21,6 +21,7 @@ func get_input_buffer() -> Node:
 var _facing: Vector2 = Vector2.RIGHT
 var _stats: Stats
 var _invulnerable_remaining: float = 1.0
+var form_manager: FormManager
 
 var _facing_left: bool = false
 
@@ -202,11 +203,26 @@ func _is_special_state() -> bool:
 	return false
 
 func swap_to_next_form() -> void:
-	if _fsm and (_fsm.get_state() == PlayerRuntimeFsm.PlayerStateNode.DEAD or _fsm.get_state() == PlayerRuntimeFsm.PlayerStateNode.STUNNED):
+	if _is_game_over_state() or not form_manager:
 		return
-	push_warning("swap_to_next_form() called but form swapping is not yet implemented")
+	form_manager.swap_to_next(self)
 
 func swap_to_prev_form() -> void:
-	if _fsm and (_fsm.get_state() == PlayerRuntimeFsm.PlayerStateNode.DEAD or _fsm.get_state() == PlayerRuntimeFsm.PlayerStateNode.STUNNED):
+	if _is_game_over_state() or not form_manager:
 		return
-	push_warning("swap_to_prev_form() called but form swapping is not yet implemented")
+	form_manager.swap_to_prev(self)
+
+func enter_idle() -> void:
+	if _fsm:
+		_fsm._state = PlayerRuntimeFsm.PlayerStateNode.IDLE
+		var idle_state: PlayerStateNode = _fsm._states.get(PlayerRuntimeFsm.PlayerStateNode.IDLE)
+		if idle_state:
+			idle_state.enter(-1)
+
+func is_facing_left() -> bool:
+	return _facing_left
+
+func set_facing(left: bool) -> void:
+	_facing_left = left
+	if _sprite:
+		_sprite.flip_h = left

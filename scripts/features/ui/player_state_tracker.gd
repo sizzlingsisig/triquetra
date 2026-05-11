@@ -38,6 +38,12 @@ func _auto_setup() -> void:
 	_game_manager = get_node_or_null("/root/GameManager")
 
 	setup(_player, _game_manager)
+
+	# Connect to FormManager for swap reconnection
+	var form_manager: FormManager = get_node_or_null("/root/Main/Player/FormManager")
+	if form_manager:
+		form_manager.active_player_changed.connect(_on_active_player_changed)
+
 	_setup_done = true
 
 func setup(player: PlayerController, game_manager: Node) -> void:
@@ -60,6 +66,20 @@ func setup(player: PlayerController, game_manager: Node) -> void:
 		if not _game_manager.guardian_pool_changed.is_connected(_on_guardian_pool_changed):
 			_game_manager.guardian_pool_changed.connect(_on_guardian_pool_changed)
 
+	_refresh_all()
+
+func _on_active_player_changed(player: PlayerController) -> void:
+	# Disconnect old FSM
+	if _player:
+		var old_fsm: PlayerRuntimeFsm = _player.runtime_fsm as PlayerRuntimeFsm
+		if old_fsm and old_fsm.state_changed.is_connected(_on_state_changed):
+			old_fsm.state_changed.disconnect(_on_state_changed)
+
+	# Connect new player
+	_player = player
+	var new_fsm: PlayerRuntimeFsm = _player.runtime_fsm as PlayerRuntimeFsm
+	if new_fsm and not new_fsm.state_changed.is_connected(_on_state_changed):
+		new_fsm.state_changed.connect(_on_state_changed)
 	_refresh_all()
 
 func _on_health_changed(new_health: int, max_health: int) -> void:

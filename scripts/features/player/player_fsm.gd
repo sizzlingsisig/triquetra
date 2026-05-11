@@ -88,7 +88,7 @@ func _update_state(reason: StringName) -> void:
 
 func _resolve_next_state() -> int:
 	match _state:
-		PlayerStateNode.ATTACKING, PlayerStateNode.SPECIAL, PlayerStateNode.JUMPING, PlayerStateNode.STUNNED, PlayerStateNode.DEAD:
+		PlayerStateNode.ATTACKING, PlayerStateNode.SPECIAL, PlayerStateNode.JUMPING, PlayerStateNode.STUNNED, PlayerStateNode.DEAD, PlayerStateNode.SWITCHING:
 			return _state
 	if not _controller.is_on_floor():
 		return PlayerStateNode.JUMPING

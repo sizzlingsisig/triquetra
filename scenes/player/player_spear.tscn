@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://dugcp8rbi7ujf" path="res://assets/skeleton_sprites/Skeleton_Spearman/Run+attack.png" id="6"]
 [ext_resource type="Texture2D" uid="uid://cdleugca8v3ft" path="res://assets/skeleton_sprites/Skeleton_Spearman/Dead.png" id="7"]
 [ext_resource type="Script" uid="uid://chxcyy4adxpck" path="res://scripts/features/player/components/player_movement_component.gd" id="18_lkqfd"]
+[ext_resource type="Script" uid="uid://c8ggubokpxwwx" path="res://scripts/features/player/states/state_switching.gd" id="18_w1xjp"]
 [ext_resource type="Script" uid="uid://8714nlvefq3m" path="res://scripts/features/combat/hurtbox.gd" id="hurtbox_script"]
 [ext_resource type="Script" uid="uid://dik05s7cacxg5" path="res://scripts/features/player/components/player_input_buffer.gd" id="input_buffer_script"]
 [ext_resource type="Script" uid="uid://cgroxc0bypajt" path="res://scripts/features/player/player_controller.gd" id="player_controller_script"]
@@ -349,8 +350,6 @@ animation = &"idle"
 position = Vector2(-2, -5)
 shape = SubResource("shape")
 
-[node name="Camera2D" type="Camera2D" parent="." unique_id=19559293]
-
 [node name="Hurtbox" type="Area2D" parent="." unique_id=1094184377]
 script = ExtResource("hurtbox_script")
 
@@ -381,6 +380,9 @@ script = ExtResource("state_jumping_script")
 
 [node name="StateDead" type="Node" parent="Fsm" unique_id=2000000206]
 script = ExtResource("state_dead_script")
+
+[node name="StateSwitching" type="Node" parent="Fsm" unique_id=142235769]
+script = ExtResource("18_w1xjp")
 
 [node name="MovementComponent" type="Node" parent="." unique_id=1419744289]
 script = ExtResource("18_lkqfd")

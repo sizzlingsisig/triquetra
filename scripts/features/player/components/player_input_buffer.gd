@@ -25,7 +25,9 @@ var _player: PlayerController
 func _is_command_allowed(command_id: StringName) -> bool:
 	if _player and _player.runtime_fsm:
 		var state: int = _player.runtime_fsm.get_state()
-		if state == PlayerRuntimeFsm.PlayerStateNode.DEAD or state == PlayerRuntimeFsm.PlayerStateNode.STUNNED:
+		if state == PlayerRuntimeFsm.PlayerStateNode.DEAD \
+		or state == PlayerRuntimeFsm.PlayerStateNode.STUNNED \
+		or state == PlayerRuntimeFsm.PlayerStateNode.SWITCHING:
 			return false
 	return true
 
