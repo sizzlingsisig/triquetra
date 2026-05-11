@@ -1,0 +1,118 @@
+extends Node
+class_name PlayerRuntimeFsm
+
+## All possible player runtime states.
+enum PlayerStateNode {
+	IDLE = 0,
+	RUNNING = 1,
+	ATTACKING = 2,
+	SPECIAL = 3,
+	SWITCHING = 4,
+	JUMPING = 5,
+	DEAD = 6,
+	STUNNED = 7,
+}
+
+const COMMAND_PRIMARY_ATTACK: StringName = &"primary_attack"
+const COMMAND_SPECIAL: StringName = &"special"
+const COMMAND_JUMP: StringName = &"jump"
+const COMMAND_SWAP_NEXT: StringName = &"swap_next"
+const COMMAND_SWAP_PREV: StringName = &"swap_prev"
+
+## Emitted when the player runtime state transitions.
+## [param from] is the previous state, [param to] is the new state,
+## [param reason] describes what caused the transition.
+signal state_changed(from: int, to: int, reason: StringName)
+
+var _state: int = PlayerStateNode.IDLE
+var _states: Dictionary = {}
+var _controller: PlayerController
+
+func setup(controller: PlayerController) -> void:
+	_controller = controller
+	for child in get_children():
+		if child is PlayerStateNode:
+			_states[child.state_id] = child
+			child.setup(self, controller)
+
+func get_state() -> int:
+	return _state
+
+func physics_update(delta: float) -> void:
+	var state: PlayerStateNode = _states.get(_state)
+	if state:
+		state.physics_update(delta)
+	else:
+		push_error("PlayerRuntimeFsm: state %d not found in _states" % _state)
+
+func execute_command(cmd: StringName) -> bool:
+	if _state == PlayerStateNode.DEAD or _state == PlayerStateNode.STUNNED:
+		return false
+	var state: PlayerStateNode = _states.get(_state)
+	if state and state.can_accept_command(cmd):
+		var handled: bool = state.handle_action(cmd)
+		if handled:
+			_update_state(cmd)
+		return handled
+	return false
+
+func force_state(next_state: int, reason: StringName) -> void:
+	if _state == next_state:
+		return
+	var prev: int = _state
+	var prev_state: PlayerStateNode = _states.get(prev)
+	if prev_state:
+		prev_state.exit(next_state)
+	else:
+		push_error("PlayerRuntimeFsm: previous state %d not found in _states" % prev)
+	_state = next_state
+	var next_state_obj: PlayerStateNode = _states.get(_state)
+	if next_state_obj:
+		next_state_obj.enter(prev)
+	else:
+		push_error("PlayerRuntimeFsm: next state %d not found in _states" % _state)
+	state_changed.emit(prev, _state, reason)
+
+func _update_state(reason: StringName) -> void:
+	var prev: int = _state
+	var next: int = _resolve_next_state()
+	if next != prev:
+		var prev_state: PlayerStateNode = _states.get(prev) as PlayerStateNode
+		if prev_state:
+			prev_state.exit(next)
+		_state = next
+		var next_state: PlayerStateNode = _states.get(_state) as PlayerStateNode
+		if next_state:
+			next_state.enter(prev)
+		state_changed.emit(prev, _state, reason)
+
+func _resolve_next_state() -> int:
+	match _state:
+		PlayerStateNode.ATTACKING, PlayerStateNode.SPECIAL, PlayerStateNode.JUMPING, PlayerStateNode.STUNNED, PlayerStateNode.DEAD:
+			return _state
+	if not _controller.is_on_floor():
+		return PlayerStateNode.JUMPING
+	if absf(_controller.velocity.x) > 4.0:
+		return PlayerStateNode.RUNNING
+	return PlayerStateNode.IDLE
+
+func get_state_name() -> StringName:
+	match _state:
+		PlayerStateNode.IDLE:
+			return &"IDLE"
+		PlayerStateNode.RUNNING:
+			return &"RUNNING"
+		PlayerStateNode.ATTACKING:
+			return &"ATTACKING"
+		PlayerStateNode.SPECIAL:
+			return &"SPECIAL"
+		PlayerStateNode.SWITCHING:
+			return &"SWITCHING"
+		PlayerStateNode.JUMPING:
+			return &"JUMPING"
+		PlayerStateNode.DEAD:
+			return &"DEAD"
+		PlayerStateNode.STUNNED:
+			return &"STUNNED"
+		_:
+			return &"UNKNOWN"

@@ -1,0 +1,53 @@
+class_name StateRunning
+extends PlayerStateNode
+
+const Fsm = preload("res://scripts/features/player/player_fsm.gd")
+
+func _ready() -> void:
+	state_id = Fsm.PlayerStateNode.RUNNING
+
+func enter(_prev: int) -> void:
+	_controller.play_animation("run")
+
+func can_accept_command(cmd: StringName) -> bool:
+	return cmd == Fsm.COMMAND_PRIMARY_ATTACK or cmd == Fsm.COMMAND_SPECIAL or cmd == Fsm.COMMAND_JUMP or cmd == Fsm.COMMAND_SWAP_NEXT or cmd == Fsm.COMMAND_SWAP_PREV
+
+func handle_action(cmd: StringName) -> bool:
+	match cmd:
+		Fsm.COMMAND_PRIMARY_ATTACK:
+			_controller.spawn_hitbox()
+			_controller.play_animation("run_attack")
+			_fsm.force_state(Fsm.PlayerStateNode.ATTACKING, cmd)
+			return true
+		Fsm.COMMAND_SPECIAL:
+			match _controller.form_id:
+				&"Bow":
+					_controller.spawn_arrow()
+					_controller.play_animation("shot")
+				&"Sword":
+					_controller.play_animation("block")
+				&"Spear":
+					_controller.play_animation("special")
+			_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
+			return true
+		Fsm.COMMAND_JUMP:
+			_controller.jump()
+			if _movement:
+				_movement.try_start_jump()
+			_fsm.force_state(Fsm.PlayerStateNode.JUMPING, cmd)
+			return true
+		Fsm.COMMAND_SWAP_NEXT:
+			_controller.swap_to_next_form()
+			return true
+		Fsm.COMMAND_SWAP_PREV:
+			_controller.swap_to_prev_form()
+			return true
+	return false
+
+func physics_update(delta: float) -> void:
+	if _movement:
+		_movement.apply_movement(delta)
+	if absf(_controller.velocity.x) <= 4.0:
+		_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"stopped")
+	elif not _controller.is_on_floor():
+		_fsm.force_state(Fsm.PlayerStateNode.JUMPING, &"falling")
