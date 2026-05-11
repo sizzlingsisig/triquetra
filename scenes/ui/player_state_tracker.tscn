@@ -1,0 +1,63 @@
+[gd_scene format=3 uid="uid://bi8mlgaicsn3m"]
+
+[ext_resource type="Script" uid="uid://bvih8h73wrrah" path="res://scripts/features/ui/player_state_tracker.gd" id="1_tracker"]
+
+[node name="PlayerStateTracker" type="CanvasLayer" unique_id=1579594760]
+script = ExtResource("1_tracker")
+
+[node name="Panel" type="ColorRect" parent="." unique_id=1659767273]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 230.0
+offset_bottom = 100.0
+grow_horizontal = 2
+color = Color(0.1, 0.1, 0.1, 0.75)
+
+[node name="HealthLabel" type="Label" parent="Panel" unique_id=1940809902]
+layout_mode = 1
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 210.0
+offset_bottom = 30.0
+text = "HP"
+
+[node name="HealthBar" type="ProgressBar" parent="Panel" unique_id=1185600764]
+layout_mode = 1
+offset_left = 10.0
+offset_top = 30.0
+offset_right = 210.0
+offset_bottom = 50.0
+max_value = 1.0
+show_percentage = false
+
+[node name="FormSword" type="Label" parent="Panel" unique_id=1314419627]
+layout_mode = 1
+offset_left = 10.0
+offset_top = 55.0
+offset_right = 75.0
+offset_bottom = 75.0
+text = "[Sword]"
+
+[node name="FormSpear" type="Label" parent="Panel" unique_id=907042326]
+layout_mode = 1
+offset_left = 80.0
+offset_top = 55.0
+offset_right = 145.0
+offset_bottom = 75.0
+text = "[Spear]"
+
+[node name="FormBow" type="Label" parent="Panel" unique_id=1384932110]
+layout_mode = 1
+offset_left = 150.0
+offset_top = 55.0
+offset_right = 215.0
+offset_bottom = 75.0
+text = "[Bow]"
+
+[node name="StateLabel" type="Label" parent="Panel" unique_id=1053226329]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 76.0
+offset_right = 210.0
+offset_bottom = 88.0
+text = "STATE: IDLE"
