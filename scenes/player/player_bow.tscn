@@ -18,6 +18,8 @@
 [ext_resource type="Script" uid="uid://dw1q2bctx58lp" path="res://scripts/features/player/states/state_jumping.gd" id="state_jumping_script"]
 [ext_resource type="Script" uid="uid://bp1nfpynqa7pr" path="res://scripts/features/player/states/state_running.gd" id="state_running_script"]
 [ext_resource type="Script" uid="uid://cqptjtnsn3hwp" path="res://scripts/features/player/states/state_special.gd" id="state_special_script"]
+[ext_resource type="Script" path="res://scripts/features/player/states/state_bow_attack.gd" id="state_bow_attack_script"]
+[ext_resource type="Script" path="res://scripts/features/player/states/state_evasion.gd" id="state_evasion_script"]
 
 [sub_resource type="AtlasTexture" id="atlas_dead_0"]
 atlas = ExtResource("6")
@@ -501,6 +503,12 @@ script = ExtResource("state_dead_script")
 
 [node name="StateSwitching" type="Node" parent="Fsm" unique_id=953415323]
 script = ExtResource("17_jlo4l")
+
+[node name="StateBowAttack" type="Node" parent="Fsm"]
+script = ExtResource("state_bow_attack_script")
+
+[node name="StateEvasion" type="Node" parent="Fsm"]
+script = ExtResource("state_evasion_script")
 
 [node name="MovementComponent" type="Node" parent="." unique_id=425040645]
 script = ExtResource("17_5eoj4")

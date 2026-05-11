@@ -12,6 +12,7 @@ class_name PlayerController
 @onready var _sprite: AnimatedSprite2D = $Sprite
 @onready var _hurtbox: Hurtbox = $Hurtbox
 @onready var _movement: PlayerMovementComponent = $MovementComponent
+@onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 var _input_buffer: Node
 
 func get_input_buffer() -> Node:
@@ -81,6 +82,7 @@ func _apply_movement_physics(delta: float) -> void:
 	if _fsm:
 		_fsm.physics_update(delta)
 	move_and_slide()
+	_clamp_to_screen()
 
 func _apply_simple_physics(delta: float) -> void:
 	if _fsm:
@@ -90,6 +92,7 @@ func _apply_simple_physics(delta: float) -> void:
 		else:
 			velocity.y = 0.0
 		move_and_slide()
+		_clamp_to_screen()
 	else:
 		if Input.is_action_just_pressed("jump") and is_on_floor():
 			velocity.y = jump_velocity
@@ -107,6 +110,17 @@ func _apply_simple_physics(delta: float) -> void:
 			if is_on_floor() and absf(velocity.x) <= 4.0:
 				play_animation("idle")
 		move_and_slide()
+func _clamp_to_screen() -> void:
+	var screen_size: Vector2 = get_viewport_rect().size
+	var half_width: float = 16.0
+	var half_height: float = 26.0
+	if _collision_shape and _collision_shape.shape is RectangleShape2D:
+		var rect: RectangleShape2D = _collision_shape.shape
+		half_width = rect.size.x * 0.5
+		half_height = rect.size.y * 0.5
+	global_position.x = clampf(global_position.x, half_width, screen_size.x - half_width)
+	global_position.y = clampf(global_position.y, half_height, screen_size.y - half_height)
+
 func _unhandled_input(_event: InputEvent) -> void:
 	pass
 
@@ -132,7 +146,11 @@ func spawn_arrow() -> void:
 	if arrow_scene:
 		var arrow: Node = arrow_scene.instantiate()
 		get_parent().add_child(arrow)
-		arrow.global_position = global_position + (_facing * Vector2(30, -15))
+		var marker: Node2D = get_node_or_null("ArrowSpawnMarker")
+		if marker:
+			arrow.global_position = marker.global_position
+		else:
+			arrow.global_position = global_position + Vector2(_facing.x * 30, -15)
 		if arrow.has_method("initialize"):
 			arrow.initialize(_facing, form_id)
 
@@ -194,6 +212,7 @@ func _can_process_combat() -> bool:
 
 func _set_sprite_facing(facing_left: bool) -> void:
 	_facing_left = facing_left
+	_facing = Vector2.LEFT if facing_left else Vector2.RIGHT
 	if _sprite:
 		_sprite.flip_h = facing_left
 
@@ -224,5 +243,6 @@ func is_facing_left() -> bool:
 
 func set_facing(left: bool) -> void:
 	_facing_left = left
+	_facing = Vector2.LEFT if left else Vector2.RIGHT
 	if _sprite:
 		_sprite.flip_h = left

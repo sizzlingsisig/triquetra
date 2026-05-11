@@ -11,6 +11,8 @@ enum PlayerStateNode {
 	JUMPING = 5,
 	DEAD = 6,
 	STUNNED = 7,
+	BOW_ATTACK = 8,
+	EVASION = 9,
 }
 
 const COMMAND_PRIMARY_ATTACK: StringName = &"primary_attack"
@@ -88,7 +90,7 @@ func _update_state(reason: StringName) -> void:
 
 func _resolve_next_state() -> int:
 	match _state:
-		PlayerStateNode.ATTACKING, PlayerStateNode.SPECIAL, PlayerStateNode.JUMPING, PlayerStateNode.STUNNED, PlayerStateNode.DEAD, PlayerStateNode.SWITCHING:
+		PlayerStateNode.ATTACKING, PlayerStateNode.SPECIAL, PlayerStateNode.JUMPING, PlayerStateNode.STUNNED, PlayerStateNode.DEAD, PlayerStateNode.SWITCHING, PlayerStateNode.BOW_ATTACK, PlayerStateNode.EVASION:
 			return _state
 	if not _controller.is_on_floor():
 		return PlayerStateNode.JUMPING
@@ -114,5 +116,9 @@ func get_state_name() -> StringName:
 			return &"DEAD"
 		PlayerStateNode.STUNNED:
 			return &"STUNNED"
+		PlayerStateNode.BOW_ATTACK:
+			return &"BOW_ATTACK"
+		PlayerStateNode.EVASION:
+			return &"EVASION"
 		_:
 			return &"UNKNOWN"

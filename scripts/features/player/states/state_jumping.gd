@@ -15,11 +15,17 @@ func can_accept_command(cmd: StringName) -> bool:
 func handle_action(cmd: StringName) -> bool:
 	match cmd:
 		Fsm.COMMAND_PRIMARY_ATTACK:
-			_controller.spawn_hitbox()
+			if _controller.form_id == &"Bow":
+				_controller.spawn_arrow()
+				_controller.play_animation(&"shot")
+				_fsm.force_state(Fsm.PlayerStateNode.BOW_ATTACK, cmd)
+			else:
+				_controller.spawn_hitbox()
 			return true
 		Fsm.COMMAND_SPECIAL:
 			if _controller.form_id == &"Bow":
-				_controller.spawn_arrow()
+				_controller.play_animation(&"evasion")
+				_fsm.force_state(Fsm.PlayerStateNode.EVASION, cmd)
 			return true
 	return false
 

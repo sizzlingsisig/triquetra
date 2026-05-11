@@ -15,19 +15,26 @@ func can_accept_command(cmd: StringName) -> bool:
 func handle_action(cmd: StringName) -> bool:
 	match cmd:
 		Fsm.COMMAND_PRIMARY_ATTACK:
-			_controller.spawn_hitbox()
-			_controller.play_animation("attack")
-			_fsm.force_state(Fsm.PlayerStateNode.ATTACKING, cmd)
-			return true
-		Fsm.COMMAND_SPECIAL:
 			if _controller.form_id == &"Bow":
 				_controller.spawn_arrow()
-				_controller.play_animation("shot")
-			elif _controller.form_id == &"Sword":
-				_controller.play_animation("block")
+				_controller.play_animation(&"shot")
+				_fsm.force_state(Fsm.PlayerStateNode.BOW_ATTACK, cmd)
 			else:
-				_controller.play_animation("special")
-			_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
+				_controller.spawn_hitbox()
+				_controller.play_animation(&"attack")
+				_fsm.force_state(Fsm.PlayerStateNode.ATTACKING, cmd)
+			return true
+		Fsm.COMMAND_SPECIAL:
+			match _controller.form_id:
+				&"Bow":
+					_controller.play_animation(&"evasion")
+					_fsm.force_state(Fsm.PlayerStateNode.EVASION, cmd)
+				&"Sword":
+					_controller.play_animation(&"block")
+					_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
+				_:
+					_controller.play_animation(&"special")
+					_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
 			return true
 		Fsm.COMMAND_JUMP:
 			_controller.jump()
@@ -47,7 +54,8 @@ func physics_update(delta: float) -> void:
 	if _movement:
 		_movement.apply_movement(delta)
 	if absf(_controller.velocity.x) > 4.0:
-		_controller.play_animation("run")
+		var move_anim: StringName = &"walk" if _controller.form_id == &"Bow" else &"run"
+		_controller.play_animation(move_anim)
 		_fsm.force_state(Fsm.PlayerStateNode.RUNNING, &"movement")
 	elif not _controller.is_on_floor():
 		_fsm.force_state(Fsm.PlayerStateNode.JUMPING, &"falling")
