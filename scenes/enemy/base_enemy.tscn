@@ -1,0 +1,63 @@
+[gd_scene format=3 uid="uid://d2r3b1b7woavo"]
+
+[ext_resource type="Script" uid="uid://ciet0aqpgljld" path="res://scripts/features/enemy/base/base_enemy.gd" id="1_base_enemy_script"]
+[ext_resource type="Script" uid="uid://dyaxknkcrcmt0" path="res://scripts/features/shared/components/hurtbox_component.gd" id="2_hurtbox_script"]
+[ext_resource type="Script" uid="uid://cei0p51h4bwrc" path="res://scripts/features/shared/components/hitbox_component.gd" id="3_hitbox_script"]
+[ext_resource type="Script" uid="uid://dx3fhmwc1vgg1" path="res://scripts/features/shared/components/health_component.gd" id="4_health_script"]
+[ext_resource type="Script" uid="uid://d4aeedobi5jj7" path="res://scripts/features/shared/components/detection_component.gd" id="5_detection_script"]
+[ext_resource type="Script" uid="uid://dvovt1c4qhw43" path="res://scripts/features/enemy/base/base_enemy_state_machine.gd" id="6_fsm_script"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_se4xw"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_enemy_body"]
+size = Vector2(32, 64)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hurtbox"]
+size = Vector2(32, 64)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hitbox"]
+size = Vector2(24, 32)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_detection"]
+radius = 190.0
+
+[node name="BaseEnemy" type="CharacterBody2D" unique_id=967896121]
+collision_layer = 2
+collision_mask = 65
+script = ExtResource("1_base_enemy_script")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=2047319469]
+sprite_frames = SubResource("SpriteFrames_se4xw")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1737093222]
+shape = SubResource("RectangleShape2D_enemy_body")
+
+[node name="HurtboxComponent" type="Area2D" parent="." unique_id=1734016014]
+collision_layer = 8
+collision_mask = 36
+script = ExtResource("2_hurtbox_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxComponent" unique_id=2145145083]
+shape = SubResource("RectangleShape2D_hurtbox")
+
+[node name="HitboxComponent" type="Area2D" parent="." unique_id=1414532953]
+collision_layer = 16
+monitoring = false
+script = ExtResource("3_hitbox_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitboxComponent" unique_id=1466852417]
+shape = SubResource("RectangleShape2D_hitbox")
+
+[node name="HealthComponent" type="Node" parent="." unique_id=1331815676]
+script = ExtResource("4_health_script")
+
+[node name="StateMachine" type="Node" parent="." unique_id=598246898]
+script = ExtResource("6_fsm_script")
+
+[node name="DetectionComponent" type="Area2D" parent="." unique_id=1079113284]
+collision_layer = 0
+monitorable = false
+script = ExtResource("5_detection_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectionComponent" unique_id=1373291757]
+shape = SubResource("CircleShape2D_detection")

@@ -11,7 +11,8 @@ class_name PlayerController
 @export var sprite_scale: float = 1.5
 
 @onready var _sprite: AnimatedSprite2D = $Sprite
-@onready var _hurtbox: Hurtbox = $Hurtbox
+@onready var _health_component: HealthComponent = $HealthComponent
+@onready var _hurtbox_component: HurtboxComponent = $HurtboxComponent
 @onready var _movement: PlayerMovementComponent = $MovementComponent
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 var _input_buffer: Node
@@ -22,7 +23,7 @@ func get_input_buffer() -> Node:
 
 var _facing: Vector2 = Vector2.RIGHT
 var _stats: Stats
-var _invulnerable_remaining: float = 1.0
+
 var form_manager: FormManager
 
 var _facing_left: bool = false
@@ -38,43 +39,35 @@ var runtime_fsm:
 var stats:
 	get: return _stats
 
+var health_component: HealthComponent:
+	get: return _health_component
+
 func _ready() -> void:
 	_stats = Stats.new()
-	_stats.health_depleted.connect(_on_health_depleted)
-	_stats.health_changed.connect(_on_health_changed)
+	_health_component.set_max_health(_get_form_max_health())
+	_health_component.died.connect(_on_health_depleted)
 	_set_collision_layers()
-	_connect_event_bus()
-
+	_configure_hurtbox()
 	if _sprite:
 		_sprite.scale = Vector2(sprite_scale, sprite_scale)
 	if _collision_shape and _collision_shape.shape is RectangleShape2D:
 		var rect: RectangleShape2D = _collision_shape.shape
 		rect.size = rect.size * sprite_scale
-
 	if _fsm:
 		_fsm.setup(self)
-
 	_input_buffer = get_node_or_null("InputBuffer")
 	if _input_buffer:
 		_input_buffer.setup(self)
-
 	var movement: Node = get_node_or_null("MovementComponent")
 	if movement and movement.has_method("setup"):
 		movement.setup(self)
-
 	add_to_group("player")
 
 func _set_collision_layers() -> void:
 	collision_layer = 1
 	collision_mask = 70
 
-	if _hurtbox:
-		_hurtbox.faction = Stats.Faction.PLAYER
 
-func _connect_event_bus() -> void:
-	var event_bus: Node = get_node_or_null("/root/EventBus")
-	if event_bus and event_bus.has_signal("enemy_hit_player"):
-		event_bus.enemy_hit_player.connect(_on_enemy_hit_player)
 
 func _physics_process(delta: float) -> void:
 	if _movement:
@@ -142,11 +135,24 @@ func get_sprite() -> AnimatedSprite2D:
 	return _sprite
 
 func spawn_hitbox() -> void:
-	var hitlog := HitLog.new()
-	var hitbox := Hitbox.new()
-	hitbox.setup(_stats.current_attack, form_id, hitlog, hitbox_lifetime)
+	print("spawn_hitbox called! pos=", global_position, " facing=", _facing)
+	var hitbox := Area2D.new()
+	hitbox.add_to_group("player_attack")
+	hitbox.monitoring = true
+	hitbox.set_collision_layer_value(3, true)
+	hitbox.set_collision_mask_value(4, true)
+	var shape := CollisionShape2D.new()
+	shape.shape = RectangleShape2D.new()
+	shape.shape.size = Vector2(24, 32)
+	hitbox.add_child(shape)
 	hitbox.global_position = global_position + (_facing * attack_offset)
 	add_child(hitbox)
+	print("  hitbox spawned at: ", hitbox.global_position, " layer=", hitbox.collision_layer, " mask=", hitbox.collision_mask)
+	var timer := Timer.new()
+	timer.one_shot = true
+	hitbox.add_child(timer)
+	timer.timeout.connect(hitbox.queue_free)
+	timer.start(hitbox_lifetime)
 
 func spawn_arrow() -> void:
 	var arrow_scene: PackedScene = preload("res://scenes/player/arrow_projectile.tscn")
@@ -165,16 +171,7 @@ func jump() -> void:
 	if is_on_floor():
 		velocity.y = jump_velocity
 
-func _on_enemy_hit_player(hit_position: Vector2, _camera_intensity: float, _camera_duration: float) -> void:
-	if _invulnerable_remaining > 0.0:
-		return
 
-	var knockback_force: float = 380.0
-	var knockback_dir: float = signf(global_position.x - hit_position.x) if hit_position.x != global_position.x else _facing.x
-	velocity.x = knockback_dir * knockback_force
-	velocity.y = -100.0
-
-	_stats.take_damage(1)
 
 func _on_health_depleted() -> void:
 	if _fsm:
@@ -203,7 +200,33 @@ func _request_run_reset() -> void:
 		game_manager.request_timeline_reset(&"player_death")
 
 func take_damage(amount: int) -> void:
-	_stats.take_damage(amount)
+	_health_component.apply_damage(amount)
+
+
+func _get_form_max_health() -> int:
+	return 1
+
+
+func _configure_hurtbox() -> void:
+	if _hurtbox_component:
+		_hurtbox_component.damage_source_groups = [&"enemy_attack", &"projectile"]
+		_hurtbox_component.invulnerability_duration = 0.5
+		if not _hurtbox_component.hurtbox_hit.is_connected(_on_hurtbox_hit):
+			_hurtbox_component.hurtbox_hit.connect(_on_hurtbox_hit)
+
+
+func _on_hurtbox_hit(_source: Node, hit_position: Vector2) -> void:
+	if not _can_process_combat():
+		return
+	var knockback_dir: float = signf(global_position.x - hit_position.x) if hit_position.x != global_position.x else _facing.x
+	velocity.x = knockback_dir * 380.0
+	velocity.y = -100.0
+	_health_component.apply_damage(1)
+
+
+func _on_damage_taken(_amount: int, _new_health: int) -> void:
+	trigger_camera_shake(3.0, 0.15)
+
 
 func _is_game_over_state() -> bool:
 	if _fsm:
@@ -239,11 +262,22 @@ func swap_to_prev_form() -> void:
 	form_manager.swap_to_prev(self)
 
 func spawn_spear_lunge() -> void:
-	var hitlog := HitLog.new()
-	var hitbox := Hitbox.new()
-	hitbox.setup(_stats.current_attack, form_id, hitlog, 0.35)
+	var hitbox := Area2D.new()
+	hitbox.add_to_group("player_attack")
+	hitbox.monitoring = true
+	hitbox.set_collision_layer_value(3, true)
+	hitbox.set_collision_mask_value(4, true)
+	var shape := CollisionShape2D.new()
+	shape.shape = RectangleShape2D.new()
+	shape.shape.size = Vector2(28, 24)
+	hitbox.add_child(shape)
 	hitbox.global_position = global_position + (_facing * Vector2(50, -5))
 	add_child(hitbox)
+	var timer := Timer.new()
+	timer.one_shot = true
+	hitbox.add_child(timer)
+	timer.timeout.connect(hitbox.queue_free)
+	timer.start(0.35)
 
 func trigger_camera_shake(intensity: float, duration: float) -> void:
 	var camera: Camera2D = get_viewport().get_camera_2d()

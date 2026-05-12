@@ -9,7 +9,8 @@
 [ext_resource type="Texture2D" uid="uid://cdleugca8v3ft" path="res://assets/skeleton_sprites/Skeleton_Spearman/Dead.png" id="7"]
 [ext_resource type="Script" uid="uid://chxcyy4adxpck" path="res://scripts/features/player/components/player_movement_component.gd" id="18_lkqfd"]
 [ext_resource type="Script" uid="uid://c8ggubokpxwwx" path="res://scripts/features/player/states/state_switching.gd" id="18_w1xjp"]
-[ext_resource type="Script" uid="uid://8714nlvefq3m" path="res://scripts/features/combat/hurtbox.gd" id="hurtbox_script"]
+[ext_resource type="Script" uid="uid://dyaxknkcrcmt0" path="res://scripts/features/shared/components/hurtbox_component.gd" id="hurtbox_comp"]
+[ext_resource type="Script" uid="uid://dx3fhmwc1vgg1" path="res://scripts/features/shared/components/health_component.gd" id="health_comp"]
 [ext_resource type="Script" uid="uid://dik05s7cacxg5" path="res://scripts/features/player/components/player_input_buffer.gd" id="input_buffer_script"]
 [ext_resource type="Script" uid="uid://cgroxc0bypajt" path="res://scripts/features/player/player_controller.gd" id="player_controller_script"]
 [ext_resource type="Script" uid="uid://cbyaarytbcedq" path="res://scripts/features/player/player_fsm.gd" id="player_fsm_script"]
@@ -350,12 +351,16 @@ animation = &"idle"
 position = Vector2(-2, -5)
 shape = SubResource("shape")
 
-[node name="Hurtbox" type="Area2D" parent="." unique_id=1094184377]
-script = ExtResource("hurtbox_script")
+[node name="HurtboxComponent" type="Area2D" parent="."]
+script = ExtResource("hurtbox_comp")
+collision_layer = 1
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox" unique_id=925858570]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxComponent"]
 position = Vector2(0, -5)
 shape = SubResource("shape")
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("health_comp")
 
 [node name="InputBuffer" type="Node" parent="." unique_id=596357727]
 script = ExtResource("input_buffer_script")

@@ -36,6 +36,7 @@ func handle_action(cmd: StringName) -> bool:
 
 func _play_current_combo() -> void:
 	var anim: StringName = _animations[_combo_index]
+	_controller.spawn_hitbox()
 	_controller.play_animation(String(anim))
 
 func _on_animation_finished() -> void:

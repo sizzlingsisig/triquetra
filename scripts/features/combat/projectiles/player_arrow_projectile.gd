@@ -17,6 +17,8 @@ func initialize(direction: Vector2, form: StringName) -> void:
     rotation = _direction.angle()
 
     add_to_group("projectile")
+    set_collision_layer_value(6, true)
+    set_collision_mask_value(8, true)
     area_entered.connect(_on_area_entered)
 
     var timer: Timer = Timer.new()
@@ -32,17 +34,20 @@ func _physics_process(delta: float) -> void:
         queue_free()
 
 func _on_area_entered(area: Area2D) -> void:
-    if not area.is_in_group("enemy_hurtbox") and not area.name.begins_with("AttackHitbox"):
-        return
-
     var entity_id: int = area.get_instance_id()
     if entity_id in _hit_entities:
         return
     _hit_entities.append(entity_id)
 
-    var enemy: Node = area.get_parent()
-    if not enemy or not enemy.has_method("receive_player_hit"):
+    # New system: HurtboxComponent detects arrow via "projectile" group (Mode 2)
+    # Arrow only needs to queue_free — damage is handled by HurtboxComponent -> BaseEnemy.
+    if area is HurtboxComponent:
+        queue_free()
         return
-    enemy.receive_player_hit(_attack_form)
 
-    queue_free()
+    # Legacy: old-style enemies (no longer present after cleanup)
+    if area.is_in_group("enemy_hurtbox") or area.name.begins_with("AttackHitbox"):
+        var enemy: Node = area.get_parent()
+        if enemy and enemy.has_method("receive_player_hit"):
+            enemy.receive_player_hit(_attack_form)
+        queue_free()

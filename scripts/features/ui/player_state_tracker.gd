@@ -51,8 +51,8 @@ func setup(player: PlayerController, game_manager: Node) -> void:
 	_game_manager = game_manager
 
 	if _player:
-		if not _player.stats.health_changed.is_connected(_on_health_changed):
-			_player.stats.health_changed.connect(_on_health_changed)
+		if not _player.health_component.health_changed.is_connected(_on_health_changed):
+			_player.health_component.health_changed.connect(_on_health_changed)
 		if not _player.form_changed.is_connected(_on_form_changed):
 			_player.form_changed.connect(_on_form_changed)
 		if not _player.form_locked.is_connected(_on_form_locked):
@@ -69,20 +69,25 @@ func setup(player: PlayerController, game_manager: Node) -> void:
 	_refresh_all()
 
 func _on_active_player_changed(player: PlayerController) -> void:
-	# Disconnect old FSM
+	# Disconnect old FSM and health
 	if _player:
 		var old_fsm: PlayerRuntimeFsm = _player.runtime_fsm as PlayerRuntimeFsm
 		if old_fsm and old_fsm.state_changed.is_connected(_on_state_changed):
 			old_fsm.state_changed.disconnect(_on_state_changed)
+		if _player.health_component.health_changed.is_connected(_on_health_changed):
+			_player.health_component.health_changed.disconnect(_on_health_changed)
 
 	# Connect new player
 	_player = player
 	var new_fsm: PlayerRuntimeFsm = _player.runtime_fsm as PlayerRuntimeFsm
 	if new_fsm and not new_fsm.state_changed.is_connected(_on_state_changed):
 		new_fsm.state_changed.connect(_on_state_changed)
+	if not _player.health_component.health_changed.is_connected(_on_health_changed):
+		_player.health_component.health_changed.connect(_on_health_changed)
 	_refresh_all()
 
-func _on_health_changed(new_health: int, max_health: int) -> void:
+func _on_health_changed(new_health: int) -> void:
+	var max_health: int = _player.health_component.max_health
 	if _health_bar:
 		_health_bar.max_value = max_health
 		_health_bar.value = new_health
@@ -109,8 +114,8 @@ func _refresh_all() -> void:
 func _refresh_health() -> void:
 	if not _player:
 		return
-	var current_health: int = _player.stats.health
-	var max_health: int = _player.stats.current_max_health
+	var current_health: int = _player.health_component.get_current_health()
+	var max_health: int = _player.health_component.max_health
 	if _health_bar:
 		_health_bar.max_value = max_health
 		_health_bar.value = current_health
