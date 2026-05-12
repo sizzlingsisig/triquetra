@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/features/combat/projectiles/player_arrow_projectile.gd" id="arrow_projectile_script"]
+[ext_resource type="Texture2D" uid="uid://bobx5f7a3nwa7" path="res://assets/skeleton_sprites/Skeleton_Archer/Arrow.png" id="arrow_texture"]
 
 [sub_resource type="CircleShape2D" id="arrow_shape"]
 radius = 6.0
@@ -12,3 +13,6 @@ collision_mask = 2
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1656986993]
 shape = SubResource("arrow_shape")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("arrow_texture")

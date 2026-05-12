@@ -1,19 +1,20 @@
-class_name StateAttacking
+class_name StateBowAttack
 extends PlayerStateNode
 
 const Fsm = preload("res://scripts/features/player/player_fsm.gd")
 
 var _combo_index: int = 0
-var _animations: Array[StringName] = [&"attack", &"attack2", &"attack3", &"run_attack"]
+var _animations: Array[StringName] = [&"shot", &"shot_2"]
 var _animation_finished: bool = false
 
 func _ready() -> void:
-	state_id = Fsm.PlayerStateNode.ATTACKING
+	state_id = Fsm.PlayerStateNode.BOW_ATTACK
 
 func enter(_prev: int) -> void:
 	_combo_index = 0
 	_animation_finished = false
-	_play_current_combo()
+	_controller.spawn_arrow()
+	_controller.play_animation(&"shot")
 	var sprite: AnimatedSprite2D = _controller.get_sprite()
 	if sprite and not sprite.animation_finished.is_connected(_on_animation_finished):
 		sprite.animation_finished.connect(_on_animation_finished)
@@ -30,19 +31,17 @@ func handle_action(cmd: StringName) -> bool:
 	if cmd == Fsm.COMMAND_PRIMARY_ATTACK:
 		if not _animation_finished:
 			_combo_index = (_combo_index + 1) % _animations.size()
-			_play_current_combo()
+			_controller.spawn_arrow()
+			_controller.play_animation(_animations[_combo_index])
 			return true
 	return false
-
-func _play_current_combo() -> void:
-	var anim: StringName = _animations[_combo_index]
-	_controller.play_animation(String(anim))
 
 func _on_animation_finished() -> void:
 	_animation_finished = true
 
 func physics_update(delta: float) -> void:
-	if _movement:
-		_movement.apply_movement(delta, 0.5)
+	_controller.velocity.x = 0.0
+	if not _controller.is_on_floor() and _movement:
+		_movement.apply_gravity(delta)
 	if _animation_finished:
 		_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"animation_finished")

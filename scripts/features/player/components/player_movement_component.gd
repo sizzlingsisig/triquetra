@@ -33,10 +33,12 @@ func apply_gravity(delta: float) -> void:
 
 	_player.velocity.y = minf(_player.velocity.y + (_gravity * delta), max_fall_speed)
 
-func apply_movement(delta: float) -> void:
+func apply_movement(delta: float, speed_modifier: float = 1.0) -> void:
+	var effective_speed: float = move_speed * speed_modifier
+
 	if _hit_control_lock_remaining > 0.0:
 		_hit_control_lock_remaining = maxf(0.0, _hit_control_lock_remaining - delta)
-		_player.velocity.x = move_toward(_player.velocity.x, 0.0, move_speed)
+		_player.velocity.x = move_toward(_player.velocity.x, 0.0, effective_speed)
 		return
 
 	var input_direction := Vector2.ZERO
@@ -50,11 +52,11 @@ func apply_movement(delta: float) -> void:
 		input_direction.x = Input.get_axis(&"move_left", &"move_right")
 
 	if abs(input_direction.x) > 0.01:
-		_player.velocity.x = input_direction.x * move_speed
+		_player.velocity.x = input_direction.x * effective_speed
 		if _player:
 			_player._set_sprite_facing(input_direction.x < 0.0)
 	else:
-		_player.velocity.x = move_toward(_player.velocity.x, 0.0, move_speed)
+		_player.velocity.x = move_toward(_player.velocity.x, 0.0, effective_speed)
 
 func try_start_jump() -> bool:
 	if _is_jumping:

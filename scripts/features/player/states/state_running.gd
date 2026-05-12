@@ -7,7 +7,8 @@ func _ready() -> void:
 	state_id = Fsm.PlayerStateNode.RUNNING
 
 func enter(_prev: int) -> void:
-	_controller.play_animation("run")
+	var move_anim: StringName = &"walk" if _controller.form_id == &"Bow" else &"run"
+	_controller.play_animation(move_anim)
 
 func can_accept_command(cmd: StringName) -> bool:
 	return cmd == Fsm.COMMAND_PRIMARY_ATTACK or cmd == Fsm.COMMAND_SPECIAL or cmd == Fsm.COMMAND_JUMP or cmd == Fsm.COMMAND_SWAP_NEXT or cmd == Fsm.COMMAND_SWAP_PREV
@@ -15,20 +16,26 @@ func can_accept_command(cmd: StringName) -> bool:
 func handle_action(cmd: StringName) -> bool:
 	match cmd:
 		Fsm.COMMAND_PRIMARY_ATTACK:
-			_controller.spawn_hitbox()
-			_controller.play_animation("run_attack")
-			_fsm.force_state(Fsm.PlayerStateNode.ATTACKING, cmd)
+			if _controller.form_id == &"Bow":
+				_controller.spawn_arrow()
+				_controller.play_animation(&"shot")
+				_fsm.force_state(Fsm.PlayerStateNode.BOW_ATTACK, cmd)
+			else:
+				_controller.spawn_hitbox()
+				_controller.play_animation(&"run_attack")
+				_fsm.force_state(Fsm.PlayerStateNode.ATTACKING, cmd)
 			return true
 		Fsm.COMMAND_SPECIAL:
 			match _controller.form_id:
 				&"Bow":
-					_controller.spawn_arrow()
-					_controller.play_animation("shot")
+					_controller.play_animation(&"evasion")
+					_fsm.force_state(Fsm.PlayerStateNode.EVASION, cmd)
 				&"Sword":
-					_controller.play_animation("block")
+					_controller.play_animation(&"block")
+					_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
 				&"Spear":
-					_controller.play_animation("special")
-			_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
+					_controller.play_animation(&"run_attack")
+					_fsm.force_state(Fsm.PlayerStateNode.SPECIAL, cmd)
 			return true
 		Fsm.COMMAND_JUMP:
 			_controller.jump()
