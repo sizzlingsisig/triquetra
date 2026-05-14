@@ -49,6 +49,9 @@ var _hitbox_shape_base_y: float
 var _sprite_base_scale_x: float
 var _sprite_base_x: float
 
+## Direction toward the last hit source (used for death launch). 1 = right, -1 = left.
+var _last_hit_direction: float = 1.0
+
 ## ---------------------------------------------------------------
 ## Initialization
 ## ---------------------------------------------------------------
@@ -137,7 +140,7 @@ func _dispatch_state_process(delta: float) -> void:
 			_apply_horizontal_friction(delta)
 			process_hurt(delta)
 		BaseStateMachine.State.DEAD:
-			_apply_horizontal_friction(delta)
+			# No friction — let death launch + gravity carry the body.
 			process_dead(delta)
 
 
@@ -164,9 +167,30 @@ func _apply_horizontal_friction(delta: float) -> void:
 
 ## Called when the hurtbox detects a player attack.
 ## Override in subclass for custom damage logic (blocking, multipliers, etc.).
-func _on_hurtbox_hit(_source: Node, _hit_position: Vector2) -> void:
+func _on_hurtbox_hit(source: Node, hit_position: Vector2) -> void:
+	# Track hit direction for death launch.
+	_last_hit_direction = signf(global_position.x - hit_position.x) if hit_position.x != global_position.x else 1.0
+	
+	# Flash sprite white.
+	if animated_sprite and not health_component.is_dead():
+		animated_sprite.modulate = Color(2.0, 1.2, 1.2, 1.0)
+		var tree: SceneTree = get_tree()
+		if tree:
+			var flash_timer := tree.create_timer(0.04)
+			flash_timer.timeout.connect(func() -> void:
+				if animated_sprite and is_instance_valid(animated_sprite):
+					animated_sprite.modulate = Color.WHITE
+			)
+	
+	# Knockback away from the hit source.
+	velocity = Vector2(_last_hit_direction * 180.0, -120.0)
+	
+	var dmg: int = 1
+	var source_hitbox := source as Hitbox
+	if source_hitbox:
+		dmg = source_hitbox.damage
 	if health_component:
-		health_component.apply_damage(1)
+		health_component.apply_damage(dmg)
 	if state_machine:
 		state_machine.transition_to(BaseStateMachine.State.HURT, &"damage_taken")
 
@@ -176,6 +200,8 @@ func _on_died() -> void:
 	if state_machine:
 		state_machine.force_transition_to(BaseStateMachine.State.DEAD, &"died")
 	_disable_combat()
+	# Death launch — knock enemy away from last hit source.
+	velocity = Vector2(_last_hit_direction * 250.0, -350.0)
 
 
 func _disable_combat() -> void:

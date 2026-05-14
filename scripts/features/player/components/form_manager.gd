@@ -75,7 +75,7 @@ func _perform_swap(from: PlayerController, to: PlayerController) -> void:
 	to.set_facing(from.is_facing_left())
 
 	# Force SWITCHING on new player BEFORE enabling physics (fixes IDLE frame leak)
-	to._fsm.force_state(PlayerRuntimeFsm.PlayerStateNode.SWITCHING, &"form_swap")
+	to._fsm.force_state(PlayerRuntimeFsm.PlayerStates.SWITCHING, &"form_swap")
 
 	# Toggle players
 	_disable_player(from)

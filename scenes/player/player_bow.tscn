@@ -1,26 +1,15 @@
 [gd_scene format=3 uid="uid://cqhsxwgbpcveg"]
 
+[ext_resource type="PackedScene" uid="uid://b4d5ry7gk7m6p" path="res://scenes/player/base_player.tscn" id="1_base"]
 [ext_resource type="Texture2D" uid="uid://bpcuqc5jrqb23" path="res://assets/skeleton_sprites/Skeleton_Archer/Idle.png" id="1"]
 [ext_resource type="Texture2D" uid="uid://cm72cf2xhg7tv" path="res://assets/skeleton_sprites/Skeleton_Archer/Walk.png" id="2"]
 [ext_resource type="Texture2D" uid="uid://dbe7rvya0r81b" path="res://assets/skeleton_sprites/Skeleton_Archer/Shot_1.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://seqygd1oid3d" path="res://assets/skeleton_sprites/Skeleton_Archer/Shot_2.png" id="4"]
 [ext_resource type="Texture2D" uid="uid://dd0yw7s8f3ceq" path="res://assets/skeleton_sprites/Skeleton_Archer/Evasion.png" id="5"]
 [ext_resource type="Texture2D" uid="uid://clylgare108j2" path="res://assets/skeleton_sprites/Skeleton_Archer/Dead.png" id="6"]
-[ext_resource type="Script" uid="uid://chxcyy4adxpck" path="res://scripts/features/player/components/player_movement_component.gd" id="17_5eoj4"]
-[ext_resource type="Script" uid="uid://c8ggubokpxwwx" path="res://scripts/features/player/states/state_switching.gd" id="17_jlo4l"]
-[ext_resource type="Script" uid="uid://dyaxknkcrcmt0" path="res://scripts/features/shared/components/hurtbox_component.gd" id="hurtbox_comp"]
-[ext_resource type="Script" uid="uid://dx3fhmwc1vgg1" path="res://scripts/features/shared/components/health_component.gd" id="health_comp"]
-[ext_resource type="Script" uid="uid://dik05s7cacxg5" path="res://scripts/features/player/components/player_input_buffer.gd" id="input_buffer_script"]
-[ext_resource type="Script" uid="uid://cgroxc0bypajt" path="res://scripts/features/player/player_controller.gd" id="player_controller_script"]
-[ext_resource type="Script" uid="uid://cbyaarytbcedq" path="res://scripts/features/player/player_fsm.gd" id="player_fsm_script"]
-[ext_resource type="Script" uid="uid://cqgi7wbrmsslm" path="res://scripts/features/player/states/state_attacking.gd" id="state_attacking_script"]
-[ext_resource type="Script" uid="uid://c3ttarfi5wlqu" path="res://scripts/features/player/states/state_dead.gd" id="state_dead_script"]
-[ext_resource type="Script" uid="uid://dlpbitds8fw4m" path="res://scripts/features/player/states/state_idle.gd" id="state_idle_script"]
-[ext_resource type="Script" uid="uid://dw1q2bctx58lp" path="res://scripts/features/player/states/state_jumping.gd" id="state_jumping_script"]
-[ext_resource type="Script" uid="uid://bp1nfpynqa7pr" path="res://scripts/features/player/states/state_running.gd" id="state_running_script"]
-[ext_resource type="Script" uid="uid://cqptjtnsn3hwp" path="res://scripts/features/player/states/state_special.gd" id="state_special_script"]
-[ext_resource type="Script" path="res://scripts/features/player/states/state_bow_attack.gd" id="state_bow_attack_script"]
-[ext_resource type="Script" path="res://scripts/features/player/states/state_evasion.gd" id="state_evasion_script"]
+[ext_resource type="Script" uid="uid://cgroxc0bypajt" path="res://scripts/features/player/player_controller.gd" id="ctrl"]
+[ext_resource type="Script" path="res://scripts/features/player/states/state_bow_attack.gd" id="bow_attack"]
+[ext_resource type="Script" path="res://scripts/features/player/states/state_evasion.gd" id="evasion"]
 
 [sub_resource type="AtlasTexture" id="atlas_dead_0"]
 atlas = ExtResource("6")
@@ -440,80 +429,30 @@ animations = [{
 "speed": 12.0
 }]
 
-[sub_resource type="RectangleShape2D" id="shape"]
-size = Vector2(20, 52)
-
 [sub_resource type="CircleShape2D" id="arrow_shape"]
 radius = 6.0
 
-[node name="PlayerBow" type="CharacterBody2D" unique_id=930909498]
-collision_mask = 70
-script = ExtResource("player_controller_script")
+[node name="PlayerBow" instance=ExtResource("1_base")]
+script = ExtResource("ctrl")
 form_id = &"Bow"
 
-[node name="Sprite" type="AnimatedSprite2D" parent="." unique_id=1463030910]
-position = Vector2(0, -40)
+[node name="Sprite" parent="."]
 sprite_frames = SubResource("frames")
 animation = &"idle"
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1555243672]
-position = Vector2(-2, -5)
-shape = SubResource("shape")
-
-[node name="HurtboxComponent" type="Area2D" parent="."]
-script = ExtResource("hurtbox_comp")
-collision_layer = 1
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxComponent"]
-position = Vector2(0, -5)
-shape = SubResource("shape")
-
-[node name="HealthComponent" type="Node" parent="."]
-script = ExtResource("health_comp")
-
-[node name="ArrowSpawnMarker" type="Node2D" parent="." unique_id=1695958223]
+[node name="ArrowSpawnMarker" type="Node2D" parent="."]
 position = Vector2(30, -15)
 
-[node name="ArrowHitbox" type="Area2D" parent="." unique_id=1656986992]
+[node name="ArrowHitbox" type="Area2D" parent="."]
 position = Vector2(30, -15)
 collision_layer = 0
 collision_mask = 2
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="ArrowHitbox" unique_id=1656986993]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ArrowHitbox"]
 shape = SubResource("arrow_shape")
 
-[node name="InputBuffer" type="Node" parent="." unique_id=1656986991]
-script = ExtResource("input_buffer_script")
-
-[node name="Fsm" type="Node" parent="." unique_id=2000000100]
-script = ExtResource("player_fsm_script")
-
-[node name="StateIdle" type="Node" parent="Fsm" unique_id=2000000101]
-script = ExtResource("state_idle_script")
-
-[node name="StateRunning" type="Node" parent="Fsm" unique_id=2000000102]
-script = ExtResource("state_running_script")
-
-[node name="StateAttacking" type="Node" parent="Fsm" unique_id=2000000103]
-script = ExtResource("state_attacking_script")
-
-[node name="StateSpecial" type="Node" parent="Fsm" unique_id=2000000104]
-script = ExtResource("state_special_script")
-
-[node name="StateJumping" type="Node" parent="Fsm" unique_id=2000000105]
-script = ExtResource("state_jumping_script")
-
-[node name="StateDead" type="Node" parent="Fsm" unique_id=2000000106]
-script = ExtResource("state_dead_script")
-
-[node name="StateSwitching" type="Node" parent="Fsm" unique_id=953415323]
-script = ExtResource("17_jlo4l")
-
 [node name="StateBowAttack" type="Node" parent="Fsm"]
-script = ExtResource("state_bow_attack_script")
+script = ExtResource("bow_attack")
 
 [node name="StateEvasion" type="Node" parent="Fsm"]
-script = ExtResource("state_evasion_script")
-
-[node name="MovementComponent" type="Node" parent="." unique_id=425040645]
-script = ExtResource("17_5eoj4")
+script = ExtResource("evasion")

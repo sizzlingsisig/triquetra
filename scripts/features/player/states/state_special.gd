@@ -13,7 +13,7 @@ const THRUST_SPEED: float = 750.0
 const THRUST_FRICTION: float = 1000.0
 
 func _ready() -> void:
-	state_id = Fsm.PlayerStateNode.SPECIAL
+	state_id = Fsm.PlayerStates.SPECIAL
 	_motion_blur = ShaderMaterial.new()
 	_motion_blur.shader = preload("res://shaders/motion_blur.gdshader")
 
@@ -79,7 +79,7 @@ func physics_update(delta: float) -> void:
 			_movement.apply_gravity(delta)
 		if _animation_finished or _timer >= 0.5:
 			_controller.velocity.x = 0.0
-			_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"thrust_finished")
+			_fsm.force_state(Fsm.PlayerStates.IDLE, &"thrust_finished")
 	else:
 		# Lock horizontal movement during block, but keep gravity
 		_controller.velocity.x = 0.0
@@ -87,7 +87,7 @@ func physics_update(delta: float) -> void:
 			_movement.apply_gravity(delta)
 		if _timer >= SPECIAL_DURATION:
 			_controller.velocity.x = 0.0
-			_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"timeout")
+			_fsm.force_state(Fsm.PlayerStates.IDLE, &"timeout")
 		elif _animation_finished:
 			_controller.velocity.x = 0.0
-			_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"animation_finished")
+			_fsm.force_state(Fsm.PlayerStates.IDLE, &"animation_finished")

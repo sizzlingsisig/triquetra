@@ -109,11 +109,25 @@ func _on_target_exited(exited: Node2D) -> void:
 ## Damage pipeline
 ## ---------------------------------------------------------------
 
-func _on_hurtbox_hit(_source: Node, _hit_position: Vector2) -> void:
-	# Apply damage via the parent's logic, then become briefly invulnerable.
+func _on_hurtbox_hit(source: Node, hit_position: Vector2) -> void:
+	# Track hit direction for death launch.
+	_last_hit_direction = signf(global_position.x - hit_position.x) if hit_position.x != global_position.x else 1.0
+	# Flash sprite white.
+	if animated_sprite and not health_component.is_dead():
+		animated_sprite.modulate = Color(2.0, 1.2, 1.2, 1.0)
+		var tree: SceneTree = get_tree()
+		if tree:
+			var flash_timer := tree.create_timer(0.04)
+			flash_timer.timeout.connect(func() -> void:
+				if animated_sprite and is_instance_valid(animated_sprite):
+					animated_sprite.modulate = Color.WHITE
+			)
+	# Knockback away from the hit source.
+	velocity = Vector2(_last_hit_direction * 180.0, -120.0)
+	
+	# Apply damage, then become briefly invulnerable.
 	if health_component:
 		health_component.apply_damage(1)
-		print("Knight2 took damage! Health: ", health_component.get_current_health(), "/", health_component.max_health)
 	if state_machine:
 		state_machine.transition_to(BaseStateMachine.State.HURT, &"damage_taken")
 	hurtbox_component.make_invulnerable()
@@ -163,6 +177,14 @@ func _start_attack() -> void:
 
 func _start_death() -> void:
 	animated_sprite.play(&"knight_dead")
-	set_physics_process(false)
-	var timer: SceneTreeTimer = get_tree().create_timer(death_cleanup_delay)
-	timer.timeout.connect(queue_free)
+	# Disable collision after a moment so the body flies then falls through.
+	var tree: SceneTree = get_tree()
+	if tree:
+		var collision_timer := tree.create_timer(0.15)
+		collision_timer.timeout.connect(func() -> void:
+			if collision_layer != 0:
+				collision_layer = 0
+				collision_mask = 0
+		)
+	var cleanup_timer := tree.create_timer(death_cleanup_delay)
+	cleanup_timer.timeout.connect(queue_free)

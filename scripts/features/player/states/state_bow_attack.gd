@@ -8,7 +8,7 @@ var _animations: Array[StringName] = [&"shot", &"shot_2"]
 var _animation_finished: bool = false
 
 func _ready() -> void:
-	state_id = Fsm.PlayerStateNode.BOW_ATTACK
+	state_id = Fsm.PlayerStates.BOW_ATTACK
 
 func enter(_prev: int) -> void:
 	_combo_index = 0
@@ -44,4 +44,4 @@ func physics_update(delta: float) -> void:
 	if not _controller.is_on_floor() and _movement:
 		_movement.apply_gravity(delta)
 	if _animation_finished:
-		_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"animation_finished")
+		_fsm.force_state(Fsm.PlayerStates.IDLE, &"animation_finished")

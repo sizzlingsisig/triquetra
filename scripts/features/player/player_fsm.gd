@@ -2,7 +2,9 @@ extends Node
 class_name PlayerRuntimeFsm
 
 ## All possible player runtime states.
-enum PlayerStateNode {
+## NOTE: enum name differs from the PlayerStateNode class (player_state.gd)
+## to avoid shadowing the class with the local enum.
+enum PlayerStates {
 	IDLE = 0,
 	RUNNING = 1,
 	ATTACKING = 2,
@@ -31,7 +33,7 @@ const COMMAND_COOLDOWNS: Dictionary = {
 	COMMAND_SPECIAL: 2.0,
 }
 
-var _state: int = PlayerStateNode.IDLE
+var _state: int = PlayerStates.IDLE
 var _states: Dictionary = {}
 var _controller: PlayerController
 var _command_cooldowns: Dictionary = {}
@@ -54,7 +56,7 @@ func physics_update(delta: float) -> void:
 		push_error("PlayerRuntimeFsm: state %d not found in _states" % _state)
 
 func execute_command(cmd: StringName) -> bool:
-	if _state == PlayerStateNode.DEAD or _state == PlayerStateNode.STUNNED:
+	if _state == PlayerStates.DEAD or _state == PlayerStates.STUNNED:
 		return false
 	# Only apply cooldown when transitioning FROM a neutral state (IDLE/RUNNING/JUMPING)
 	# so combo presses during attack states are not blocked.
@@ -70,7 +72,7 @@ func execute_command(cmd: StringName) -> bool:
 	return false
 
 func _is_neutral_state() -> bool:
-	return _state == PlayerStateNode.IDLE or _state == PlayerStateNode.RUNNING or _state == PlayerStateNode.JUMPING
+	return _state == PlayerStates.IDLE or _state == PlayerStates.RUNNING or _state == PlayerStates.JUMPING
 
 func _is_command_on_cooldown(cmd: StringName) -> bool:
 	var cd: float = COMMAND_COOLDOWNS.get(cmd, 0.0)
@@ -116,35 +118,35 @@ func _update_state(reason: StringName) -> void:
 
 func _resolve_next_state() -> int:
 	match _state:
-		PlayerStateNode.ATTACKING, PlayerStateNode.SPECIAL, PlayerStateNode.JUMPING, PlayerStateNode.STUNNED, PlayerStateNode.DEAD, PlayerStateNode.SWITCHING, PlayerStateNode.BOW_ATTACK, PlayerStateNode.EVASION:
+		PlayerStates.ATTACKING, PlayerStates.SPECIAL, PlayerStates.JUMPING, PlayerStates.STUNNED, PlayerStates.DEAD, PlayerStates.SWITCHING, PlayerStates.BOW_ATTACK, PlayerStates.EVASION:
 			return _state
 	if not _controller.is_on_floor():
-		return PlayerStateNode.JUMPING
+		return PlayerStates.JUMPING
 	if absf(_controller.velocity.x) > 4.0:
-		return PlayerStateNode.RUNNING
-	return PlayerStateNode.IDLE
+		return PlayerStates.RUNNING
+	return PlayerStates.IDLE
 
 func get_state_name() -> StringName:
 	match _state:
-		PlayerStateNode.IDLE:
+		PlayerStates.IDLE:
 			return &"IDLE"
-		PlayerStateNode.RUNNING:
+		PlayerStates.RUNNING:
 			return &"RUNNING"
-		PlayerStateNode.ATTACKING:
+		PlayerStates.ATTACKING:
 			return &"ATTACKING"
-		PlayerStateNode.SPECIAL:
+		PlayerStates.SPECIAL:
 			return &"SPECIAL"
-		PlayerStateNode.SWITCHING:
+		PlayerStates.SWITCHING:
 			return &"SWITCHING"
-		PlayerStateNode.JUMPING:
+		PlayerStates.JUMPING:
 			return &"JUMPING"
-		PlayerStateNode.DEAD:
+		PlayerStates.DEAD:
 			return &"DEAD"
-		PlayerStateNode.STUNNED:
+		PlayerStates.STUNNED:
 			return &"STUNNED"
-		PlayerStateNode.BOW_ATTACK:
+		PlayerStates.BOW_ATTACK:
 			return &"BOW_ATTACK"
-		PlayerStateNode.EVASION:
+		PlayerStates.EVASION:
 			return &"EVASION"
 		_:
 			return &"UNKNOWN"

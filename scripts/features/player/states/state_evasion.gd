@@ -9,7 +9,7 @@ var _animation_finished: bool = false
 var _motion_blur: ShaderMaterial
 
 func _ready() -> void:
-	state_id = Fsm.PlayerStateNode.EVASION
+	state_id = Fsm.PlayerStates.EVASION
 	_motion_blur = ShaderMaterial.new()
 	_motion_blur.shader = preload("res://shaders/motion_blur.gdshader")
 
@@ -52,4 +52,4 @@ func physics_update(delta: float) -> void:
 		_movement.apply_gravity(delta)
 	if _animation_finished:
 		_controller.velocity.x = move_toward(_controller.velocity.x, 0.0, DASH_SPEED * delta)
-		_fsm.force_state(Fsm.PlayerStateNode.IDLE, &"animation_finished")
+		_fsm.force_state(Fsm.PlayerStates.IDLE, &"animation_finished")

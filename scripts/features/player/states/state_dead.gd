@@ -4,7 +4,7 @@ extends PlayerStateNode
 const Fsm = preload("res://scripts/features/player/player_fsm.gd")
 
 func _ready() -> void:
-	state_id = Fsm.PlayerStateNode.DEAD
+	state_id = Fsm.PlayerStates.DEAD
 
 func enter(_prev: int) -> void:
 	_controller.play_death_animation()

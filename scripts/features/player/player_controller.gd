@@ -134,25 +134,23 @@ func play_animation(name: StringName) -> void:
 func get_sprite() -> AnimatedSprite2D:
 	return _sprite
 
+const MELEE_HITBOX: PackedScene = preload("res://scenes/player/player_hitbox.tscn")
+
 func spawn_hitbox() -> void:
-	print("spawn_hitbox called! pos=", global_position, " facing=", _facing)
-	var hitbox := Area2D.new()
-	hitbox.add_to_group("player_attack")
-	hitbox.monitoring = true
-	hitbox.set_collision_layer_value(3, true)
-	hitbox.set_collision_mask_value(4, true)
-	var shape := CollisionShape2D.new()
-	shape.shape = RectangleShape2D.new()
-	shape.shape.size = Vector2(24, 32)
-	hitbox.add_child(shape)
-	hitbox.global_position = global_position + (_facing * attack_offset)
+	var hitbox: Hitbox = MELEE_HITBOX.instantiate() as Hitbox
+	if not hitbox:
+		return
+	hitbox.position = Vector2(absf(attack_offset.x) * signf(_facing.x), attack_offset.y)
+	hitbox.damage = 1
+	hitbox.active_duration = hitbox_lifetime
 	add_child(hitbox)
-	print("  hitbox spawned at: ", hitbox.global_position, " layer=", hitbox.collision_layer, " mask=", hitbox.collision_mask)
-	var timer := Timer.new()
-	timer.one_shot = true
-	hitbox.add_child(timer)
-	timer.timeout.connect(hitbox.queue_free)
-	timer.start(hitbox_lifetime)
+	hitbox.enable_for_duration()
+	trigger_camera_shake(2.0, 0.08)
+	
+	var tree: SceneTree = get_tree()
+	if tree:
+		var remove_timer: SceneTreeTimer = tree.create_timer(hitbox_lifetime + 0.05)
+		remove_timer.timeout.connect(hitbox.queue_free)
 
 func spawn_arrow() -> void:
 	var arrow_scene: PackedScene = preload("res://scenes/player/arrow_projectile.tscn")
@@ -175,7 +173,7 @@ func jump() -> void:
 
 func _on_health_depleted() -> void:
 	if _fsm:
-		_fsm.force_state(PlayerRuntimeFsm.PlayerStateNode.DEAD, &"health_depleted")
+		_fsm.force_state(PlayerRuntimeFsm.PlayerStates.DEAD, &"health_depleted")
 	else:
 		play_death_animation()
 		lock_guardian()
@@ -231,13 +229,13 @@ func _on_damage_taken(_amount: int, _new_health: int) -> void:
 func _is_game_over_state() -> bool:
 	if _fsm:
 		var state = _fsm.get_state()
-		return state == PlayerRuntimeFsm.PlayerStateNode.DEAD
+		return state == PlayerRuntimeFsm.PlayerStates.DEAD
 	return false
 
 func _can_process_combat() -> bool:
 	if _fsm:
 		var state = _fsm.get_state()
-		return state != PlayerRuntimeFsm.PlayerStateNode.DEAD and state != PlayerRuntimeFsm.PlayerStateNode.STUNNED
+		return state != PlayerRuntimeFsm.PlayerStates.DEAD and state != PlayerRuntimeFsm.PlayerStates.STUNNED
 	return true
 
 func _set_sprite_facing(facing_left: bool) -> void:
@@ -248,7 +246,7 @@ func _set_sprite_facing(facing_left: bool) -> void:
 
 func _is_special_state() -> bool:
 	if _fsm:
-		return _fsm.get_state() == PlayerRuntimeFsm.PlayerStateNode.SPECIAL
+		return _fsm.get_state() == PlayerRuntimeFsm.PlayerStates.SPECIAL
 	return false
 
 func swap_to_next_form() -> void:
@@ -262,22 +260,18 @@ func swap_to_prev_form() -> void:
 	form_manager.swap_to_prev(self)
 
 func spawn_spear_lunge() -> void:
-	var hitbox := Area2D.new()
-	hitbox.add_to_group("player_attack")
-	hitbox.monitoring = true
-	hitbox.set_collision_layer_value(3, true)
-	hitbox.set_collision_mask_value(4, true)
-	var shape := CollisionShape2D.new()
-	shape.shape = RectangleShape2D.new()
-	shape.shape.size = Vector2(28, 24)
-	hitbox.add_child(shape)
-	hitbox.global_position = global_position + (_facing * Vector2(50, -5))
+	var hitbox: Hitbox = MELEE_HITBOX.instantiate() as Hitbox
+	if not hitbox:
+		return
+	hitbox.position = Vector2(50.0 * signf(_facing.x), -5.0)
+	hitbox.damage = 2
+	hitbox.active_duration = 0.35
 	add_child(hitbox)
-	var timer := Timer.new()
-	timer.one_shot = true
-	hitbox.add_child(timer)
-	timer.timeout.connect(hitbox.queue_free)
-	timer.start(0.35)
+	hitbox.enable_for_duration()
+	var tree: SceneTree = get_tree()
+	if tree:
+		var remove_timer: SceneTreeTimer = tree.create_timer(0.4)
+		remove_timer.timeout.connect(hitbox.queue_free)
 
 func trigger_camera_shake(intensity: float, duration: float) -> void:
 	var camera: Camera2D = get_viewport().get_camera_2d()
@@ -347,8 +341,8 @@ func spawn_speed_trail(forward_dir: float) -> void:
 
 func enter_idle() -> void:
 	if _fsm:
-		_fsm._state = PlayerRuntimeFsm.PlayerStateNode.IDLE
-		var idle_state: PlayerStateNode = _fsm._states.get(PlayerRuntimeFsm.PlayerStateNode.IDLE)
+		_fsm._state = PlayerRuntimeFsm.PlayerStates.IDLE
+		var idle_state: PlayerStateNode = _fsm._states.get(PlayerRuntimeFsm.PlayerStates.IDLE)
 		if idle_state:
 			idle_state.enter(-1)
 

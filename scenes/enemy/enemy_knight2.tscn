@@ -434,7 +434,8 @@ attack_range = 40.0
 attack_window_duration = 0.22
 post_attack_pause = 0.55
 hurt_recover_time = 0.18
-death_cleanup_delay = 0.28
+death_cleanup_delay = 2.5
+max_health = 1
 
 [node name="AnimatedSprite2D" parent="." index="0" unique_id=2047319469]
 texture_filter = 1

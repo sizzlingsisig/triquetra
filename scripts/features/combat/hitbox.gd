@@ -3,52 +3,82 @@ class_name Hitbox extends Area2D
 @export var damage: int = 1
 @export var attack_form: StringName = &"Sword"
 
-var _hitlog: HitLog
-var _lifetime: float
+## Duration in seconds the hitbox stays active when enabled. 0 = no auto-disable.
+@export var active_duration: float = 0.15
 
-func setup(damage_val: int, form: StringName, hitlog: HitLog, lifetime: float) -> void:
-    damage = damage_val
-    attack_form = form
-    _hitlog = hitlog
-    _lifetime = lifetime
+## Duration of hit-stop freeze in seconds. 0 = no hit stop.
+@export var hit_stop_duration: float = 0.06
+
+var _hitlog: HitLog
+var _enable_generation: int = 0
+
+const HIT_SPARK: PackedScene = preload("res://scenes/effects/hit_spark.tscn")
+const IMPACT_RING: PackedScene = preload("res://scenes/effects/impact_ring.tscn")
+
 
 func _ready() -> void:
-    add_to_group("player_attack")
-    monitorable = true
-    monitoring = true
-    set_collision_layer_value(1, false)
-    set_collision_layer_value(2, false)
-    set_collision_layer_value(3, true)
-    set_collision_layer_value(4, false)
-    set_collision_mask_value(2, true)
-    set_collision_mask_value(8, true)
-    area_entered.connect(_on_area_entered)
+	add_to_group("player_attack")
+	monitorable = true
+	monitoring = false
+	set_collision_layer_value(1, false)
+	set_collision_layer_value(2, false)
+	set_collision_layer_value(3, true)
+	set_collision_layer_value(4, false)
+	set_collision_mask_value(2, true)
+	set_collision_mask_value(4, true)
+	if not area_entered.is_connected(_on_area_entered):
+		area_entered.connect(_on_area_entered)
 
-    # Add a collision shape so the hitbox can actually detect things.
-    var shape := CollisionShape2D.new()
-    shape.shape = RectangleShape2D.new()
-    shape.shape.size = Vector2(24, 32)
-    add_child(shape)
 
-    if _lifetime > 0.0:
-        var timer: Timer = Timer.new()
-        timer.one_shot = true
-        add_child(timer)
-        timer.timeout.connect(queue_free)
-        timer.start(_lifetime)
+## Enable the hitbox for a single swing. Uses generation-counter pattern
+## so rapid re-enables invalidate stale timers.
+func enable_for_duration() -> void:
+	_enable_generation += 1
+	var gen: int = _enable_generation
+	monitoring = true
+	if active_duration > 0.0:
+		var tree: SceneTree = get_tree()
+		if tree:
+			var timer: SceneTreeTimer = tree.create_timer(active_duration)
+			timer.timeout.connect(func() -> void:
+				if gen == _enable_generation:
+					monitoring = false
+			)
+
 
 func _on_area_entered(area: Area2D) -> void:
-    # New system: HurtboxComponent handles detection via its own signal.
-    # Just print confirmation so we know the hitbox connected.
-    if area is HurtboxComponent:
-        print("Player hitbox connected with enemy! Attack form: ", attack_form, ", damage: ", damage)
-        return
-    # Old system.
-    if not area is Hurtbox:
-        return
-    if _hitlog and _hitlog.has_hit(area):
-        return
-    var hurtbox: Hurtbox = area as Hurtbox
-    if _hitlog:
-        _hitlog.record_hit(area)
-    hurtbox.receive_hit(self)
+	# New system: emit the HurtboxComponent's signal to trigger damage.
+	if area is HurtboxComponent:
+		# Hit stop
+		if hit_stop_duration > 0.0:
+			Engine.time_scale = 0.0
+			var tree: SceneTree = get_tree()
+			if tree:
+				var stop_timer := tree.create_timer(hit_stop_duration, true, false, true)
+				stop_timer.timeout.connect(func(): Engine.time_scale = 1.0)
+		# Hit spark
+		var tree: SceneTree = get_tree()
+		if tree:
+			var spark := HIT_SPARK.instantiate() as GPUParticles2D
+			if spark:
+				spark.global_position = global_position
+				tree.root.add_child(spark)
+				spark.emitting = true
+				spark.finished.connect(spark.queue_free)
+			# Impact ring
+			var ring := IMPACT_RING.instantiate() as Node2D
+			if ring:
+				ring.global_position = global_position
+				tree.root.add_child(ring)
+		# Damage
+		area.hurtbox_hit.emit(self, global_position)
+		return
+	# Old system.
+	if not area is Hurtbox:
+		return
+	if _hitlog and _hitlog.has_hit(area):
+		return
+	var hurtbox: Hurtbox = area as Hurtbox
+	if _hitlog:
+		_hitlog.record_hit(area)
+	hurtbox.receive_hit(self)

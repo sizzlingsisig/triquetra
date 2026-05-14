@@ -1,0 +1,72 @@
+[gd_scene format=3 uid="uid://b4d5ry7gk7m6p"]
+
+[ext_resource type="Script" uid="uid://cgroxc0bypajt" path="res://scripts/features/player/player_controller.gd" id="1_player_controller"]
+[ext_resource type="Script" uid="uid://dyaxknkcrcmt0" path="res://scripts/features/shared/components/hurtbox_component.gd" id="2_hurtbox"]
+[ext_resource type="Script" uid="uid://dx3fhmwc1vgg1" path="res://scripts/features/shared/components/health_component.gd" id="3_health"]
+[ext_resource type="Script" uid="uid://dik05s7cacxg5" path="res://scripts/features/player/components/player_input_buffer.gd" id="4_input"]
+[ext_resource type="Script" uid="uid://cbyaarytbcedq" path="res://scripts/features/player/player_fsm.gd" id="5_fsm"]
+[ext_resource type="Script" uid="uid://dlpbitds8fw4m" path="res://scripts/features/player/states/state_idle.gd" id="6_state_idle"]
+[ext_resource type="Script" uid="uid://bp1nfpynqa7pr" path="res://scripts/features/player/states/state_running.gd" id="7_state_run"]
+[ext_resource type="Script" uid="uid://cqgi7wbrmsslm" path="res://scripts/features/player/states/state_attacking.gd" id="8_state_attack"]
+[ext_resource type="Script" uid="uid://cqptjtnsn3hwp" path="res://scripts/features/player/states/state_special.gd" id="9_state_special"]
+[ext_resource type="Script" uid="uid://dw1q2bctx58lp" path="res://scripts/features/player/states/state_jumping.gd" id="10_state_jump"]
+[ext_resource type="Script" uid="uid://c3ttarfi5wlqu" path="res://scripts/features/player/states/state_dead.gd" id="11_state_dead"]
+[ext_resource type="Script" uid="uid://c8ggubokpxwwx" path="res://scripts/features/player/states/state_switching.gd" id="12_state_switch"]
+[ext_resource type="Script" uid="uid://chxcyy4adxpck" path="res://scripts/features/player/components/player_movement_component.gd" id="13_movement"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(20, 52)
+
+[node name="BasePlayer" type="CharacterBody2D"]
+collision_layer = 1
+collision_mask = 70
+script = ExtResource("1_player_controller")
+
+[node name="Sprite" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -40)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(-2, -5)
+shape = SubResource("RectangleShape2D_body")
+
+[node name="HurtboxComponent" type="Area2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxComponent"]
+position = Vector2(0, -5)
+shape = SubResource("RectangleShape2D_body")
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("3_health")
+
+[node name="InputBuffer" type="Node" parent="."]
+script = ExtResource("4_input")
+
+[node name="Fsm" type="Node" parent="."]
+script = ExtResource("5_fsm")
+
+[node name="StateIdle" type="Node" parent="Fsm"]
+script = ExtResource("6_state_idle")
+
+[node name="StateRunning" type="Node" parent="Fsm"]
+script = ExtResource("7_state_run")
+
+[node name="StateAttacking" type="Node" parent="Fsm"]
+script = ExtResource("8_state_attack")
+
+[node name="StateSpecial" type="Node" parent="Fsm"]
+script = ExtResource("9_state_special")
+
+[node name="StateJumping" type="Node" parent="Fsm"]
+script = ExtResource("10_state_jump")
+
+[node name="StateDead" type="Node" parent="Fsm"]
+script = ExtResource("11_state_dead")
+
+[node name="StateSwitching" type="Node" parent="Fsm"]
+script = ExtResource("12_state_switch")
+
+[node name="MovementComponent" type="Node" parent="."]
+script = ExtResource("13_movement")
