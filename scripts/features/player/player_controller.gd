@@ -13,7 +13,6 @@ class_name PlayerController
 @onready var _sprite: AnimatedSprite2D = $Sprite
 @onready var _health_component: HealthComponent = $HealthComponent
 @onready var _hurtbox_component: HurtboxComponent = $HurtboxComponent
-@onready var _movement: PlayerMovementComponent = $MovementComponent
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 var _input_buffer: Node
 
@@ -22,28 +21,25 @@ func get_input_buffer() -> Node:
 @onready var _fsm = $Fsm
 
 var _facing: Vector2 = Vector2.RIGHT
-var _stats: Stats
 
 var form_manager: FormManager
 
 var _facing_left: bool = false
 
 ## Emitted when the active guardian form changes.
+@warning_ignore("unused_signal")
 signal form_changed(form_id: StringName)
 ## Emitted when a guardian form becomes permanently locked (death).
+@warning_ignore("unused_signal")
 signal form_locked(form_id: StringName)
 
 var runtime_fsm:
 	get: return _fsm
 
-var stats:
-	get: return _stats
-
 var health_component: HealthComponent:
 	get: return _health_component
 
 func _ready() -> void:
-	_stats = Stats.new()
 	_health_component.set_max_health(_get_form_max_health())
 	_health_component.died.connect(_on_health_depleted)
 	_set_collision_layers()
@@ -70,11 +66,7 @@ func _set_collision_layers() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _movement:
-		_apply_movement_physics(delta)
-	else:
-		_apply_simple_physics(delta)
-	
+	_apply_movement_physics(delta)
 	if _input_buffer:
 		_input_buffer.process_buffer(delta)
 
@@ -84,32 +76,6 @@ func _apply_movement_physics(delta: float) -> void:
 	move_and_slide()
 	_clamp_to_screen()
 
-func _apply_simple_physics(delta: float) -> void:
-	if _fsm:
-		_fsm.physics_update(delta)
-		if not is_on_floor():
-			velocity.y += gravity * delta
-		else:
-			velocity.y = 0.0
-		move_and_slide()
-		_clamp_to_screen()
-	else:
-		if Input.is_action_just_pressed("jump") and is_on_floor():
-			velocity.y = jump_velocity
-			play_animation("jump")
-		var direction := Input.get_axis("move_left", "move_right")
-		if direction != 0.0:
-			velocity.x = direction * move_speed
-			_facing = Vector2(direction, 0).normalized()
-			if _sprite:
-				_sprite.flip_h = direction < 0
-			if is_on_floor():
-				play_animation("run")
-		else:
-			velocity.x = move_toward(velocity.x, 0, move_speed)
-			if is_on_floor() and absf(velocity.x) <= 4.0:
-				play_animation("idle")
-		move_and_slide()
 func _clamp_to_screen() -> void:
 	var screen_size: Vector2 = get_viewport_rect().size
 	var half_width: float = 16.0
@@ -121,15 +87,12 @@ func _clamp_to_screen() -> void:
 	global_position.x = clampf(global_position.x, half_width, screen_size.x - half_width)
 	global_position.y = clampf(global_position.y, half_height, screen_size.y - half_height)
 
-func _unhandled_input(_event: InputEvent) -> void:
-	pass
-
 func _try_execute_command(cmd: StringName) -> bool:
 	return _fsm.execute_command(cmd)
 
-func play_animation(name: StringName) -> void:
-	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(String(name)):
-		_sprite.play(name)
+func play_animation(anim_name: StringName) -> void:
+	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(String(anim_name)):
+		_sprite.play(anim_name)
 
 func get_sprite() -> AnimatedSprite2D:
 	return _sprite
@@ -145,7 +108,9 @@ func spawn_hitbox() -> void:
 	hitbox.active_duration = hitbox_lifetime
 	add_child(hitbox)
 	hitbox.enable_for_duration()
-	trigger_camera_shake(2.0, 0.08)
+	var vfx := _get_vfx()
+	if vfx:
+		vfx.trigger_camera_shake(2.0, 0.08)
 	
 	var tree: SceneTree = get_tree()
 	if tree:
@@ -177,9 +142,6 @@ func _on_health_depleted() -> void:
 	else:
 		play_death_animation()
 		lock_guardian()
-
-func _on_health_changed(_new_health: int, _max_health: int) -> void:
-	pass
 
 func play_death_animation() -> void:
 	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation("dead"):
@@ -214,7 +176,7 @@ func _configure_hurtbox() -> void:
 
 
 func _on_hurtbox_hit(_source: Node, hit_position: Vector2) -> void:
-	if not _can_process_combat():
+	if not can_process_combat():
 		return
 	var knockback_dir: float = signf(global_position.x - hit_position.x) if hit_position.x != global_position.x else _facing.x
 	velocity.x = knockback_dir * 380.0
@@ -222,40 +184,36 @@ func _on_hurtbox_hit(_source: Node, hit_position: Vector2) -> void:
 	_health_component.apply_damage(1)
 
 
-func _on_damage_taken(_amount: int, _new_health: int) -> void:
-	trigger_camera_shake(3.0, 0.15)
-
-
-func _is_game_over_state() -> bool:
+func is_game_over_state() -> bool:
 	if _fsm:
 		var state = _fsm.get_state()
 		return state == PlayerRuntimeFsm.PlayerStates.DEAD
 	return false
 
-func _can_process_combat() -> bool:
+func can_process_combat() -> bool:
 	if _fsm:
 		var state = _fsm.get_state()
 		return state != PlayerRuntimeFsm.PlayerStates.DEAD and state != PlayerRuntimeFsm.PlayerStates.STUNNED
 	return true
 
-func _set_sprite_facing(facing_left: bool) -> void:
+func set_sprite_facing(facing_left: bool) -> void:
 	_facing_left = facing_left
 	_facing = Vector2.LEFT if facing_left else Vector2.RIGHT
 	if _sprite:
 		_sprite.flip_h = facing_left
 
-func _is_special_state() -> bool:
+func is_special_state() -> bool:
 	if _fsm:
 		return _fsm.get_state() == PlayerRuntimeFsm.PlayerStates.SPECIAL
 	return false
 
 func swap_to_next_form() -> void:
-	if _is_game_over_state() or not form_manager:
+	if is_game_over_state() or not form_manager:
 		return
 	form_manager.swap_to_next(self)
 
 func swap_to_prev_form() -> void:
-	if _is_game_over_state() or not form_manager:
+	if is_game_over_state() or not form_manager:
 		return
 	form_manager.swap_to_prev(self)
 
@@ -273,71 +231,9 @@ func spawn_spear_lunge() -> void:
 		var remove_timer: SceneTreeTimer = tree.create_timer(0.4)
 		remove_timer.timeout.connect(hitbox.queue_free)
 
-func trigger_camera_shake(intensity: float, duration: float) -> void:
-	var camera: Camera2D = get_viewport().get_camera_2d()
-	if not camera:
-		return
-	var original_offset: Vector2 = camera.offset
-	var shake_tween: Tween = create_tween()
-	shake_tween.tween_method(func(_t: float):
-		var decay: float = 1.0 - _t
-		camera.offset = Vector2(
-			randf_range(-intensity, intensity) * decay,
-			randf_range(-intensity, intensity) * decay
-		)
-	, 0.0, 1.0, duration)
-	shake_tween.tween_callback(func(): camera.offset = Vector2.ZERO)
+func _get_vfx() -> PlayerVFXComponent:
+	return get_node_or_null("VFXComponent") as PlayerVFXComponent
 
-func spawn_shield_ring() -> void:
-	# Inner ring (main shield impact)
-	var ring := Line2D.new()
-	ring.default_color = Color(0.4, 0.6, 1.0, 0.5)
-	ring.width = 3.0
-	var pts: PackedVector2Array = []
-	var segments: int = 24
-	for i in range(segments + 1):
-		var a: float = (float(i) / float(segments)) * TAU
-		pts.append(Vector2(cos(a) * 26.0, sin(a) * 26.0))
-	ring.points = pts
-	ring.z_index = 1
-	add_child(ring)
-	var tween: Tween = create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(ring, "default_color", Color(0.4, 0.6, 1.0, 0.0), 0.6)
-	tween.tween_property(ring, "width", 5.0, 0.6)
-	tween.tween_callback(ring.queue_free)
-
-	# Outer glow ring (pulsing aura)
-	var glow := Line2D.new()
-	glow.default_color = Color(0.3, 0.5, 1.0, 0.2)
-	glow.width = 1.5
-	var glow_pts: PackedVector2Array = []
-	for i in range(segments + 1):
-		var a: float = (float(i) / float(segments)) * TAU
-		glow_pts.append(Vector2(cos(a) * 36.0, sin(a) * 36.0))
-	glow.points = glow_pts
-	glow.z_index = 1
-	add_child(glow)
-	var glow_tween: Tween = create_tween()
-	glow_tween.set_parallel(true)
-	glow_tween.tween_property(glow, "default_color", Color(0.3, 0.5, 1.0, 0.0), 0.8)
-	glow_tween.tween_property(glow, "width", 4.0, 0.8)
-	glow_tween.tween_callback(glow.queue_free)
-
-func spawn_speed_trail(forward_dir: float) -> void:
-	var trail := Line2D.new()
-	trail.default_color = Color(1, 1, 0.95, 0.6)
-	trail.width = 3.0
-	var behind_dir: float = -forward_dir
-	trail.points = PackedVector2Array([
-		Vector2(behind_dir * 40.0, 0.0),
-		Vector2(behind_dir * 60.0, 0.0)
-	])
-	trail.z_index = -1
-	add_child(trail)
-	var tween: Tween = create_tween()
-	tween.tween_property(trail, "modulate", Color(1, 1, 1, 0), 0.25)
-	tween.tween_callback(trail.queue_free)
 
 func enter_idle() -> void:
 	if _fsm:
@@ -349,8 +245,15 @@ func enter_idle() -> void:
 func is_facing_left() -> bool:
 	return _facing_left
 
+func get_facing_direction() -> Vector2:
+	return _facing
+
 func set_facing(left: bool) -> void:
 	_facing_left = left
 	_facing = Vector2.LEFT if left else Vector2.RIGHT
 	if _sprite:
 		_sprite.flip_h = left
+
+
+# UNUSED_SIGNAL warnings for form_changed/form_locked are false positives.
+# Both are connected dynamically in player_state_tracker.gd

@@ -9,7 +9,6 @@ class_name Hitbox extends Area2D
 ## Duration of hit-stop freeze in seconds. 0 = no hit stop.
 @export var hit_stop_duration: float = 0.06
 
-var _hitlog: HitLog
 var _enable_generation: int = 0
 
 const HIT_SPARK: PackedScene = preload("res://scenes/effects/hit_spark.tscn")
@@ -47,17 +46,16 @@ func enable_for_duration() -> void:
 
 
 func _on_area_entered(area: Area2D) -> void:
+	var tree: SceneTree = get_tree()
 	# New system: emit the HurtboxComponent's signal to trigger damage.
 	if area is HurtboxComponent:
 		# Hit stop
 		if hit_stop_duration > 0.0:
 			Engine.time_scale = 0.0
-			var tree: SceneTree = get_tree()
 			if tree:
 				var stop_timer := tree.create_timer(hit_stop_duration, true, false, true)
 				stop_timer.timeout.connect(func(): Engine.time_scale = 1.0)
 		# Hit spark
-		var tree: SceneTree = get_tree()
 		if tree:
 			var spark := HIT_SPARK.instantiate() as GPUParticles2D
 			if spark:
@@ -72,13 +70,3 @@ func _on_area_entered(area: Area2D) -> void:
 				tree.root.add_child(ring)
 		# Damage
 		area.hurtbox_hit.emit(self, global_position)
-		return
-	# Old system.
-	if not area is Hurtbox:
-		return
-	if _hitlog and _hitlog.has_hit(area):
-		return
-	var hurtbox: Hurtbox = area as Hurtbox
-	if _hitlog:
-		_hitlog.record_hit(area)
-	hurtbox.receive_hit(self)

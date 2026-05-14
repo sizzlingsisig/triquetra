@@ -8,8 +8,6 @@ class_name ArrowProjectile
 var _direction: Vector2 = Vector2.RIGHT
 var _attack_form: StringName = &"Bow"
 var _spawn_position: Vector2 = Vector2.ZERO
-var _hit_entities: Array[int] = []
-
 func initialize(direction: Vector2, form: StringName) -> void:
     _direction = direction.normalized()
     _attack_form = form
@@ -34,20 +32,7 @@ func _physics_process(delta: float) -> void:
         queue_free()
 
 func _on_area_entered(area: Area2D) -> void:
-    var entity_id: int = area.get_instance_id()
-    if entity_id in _hit_entities:
-        return
-    _hit_entities.append(entity_id)
-
-    # New system: HurtboxComponent detects arrow via "projectile" group (Mode 2)
-    # Arrow only needs to queue_free — damage is handled by HurtboxComponent -> BaseEnemy.
+    # New system: HurtboxComponent detects arrow via "projectile" group
     if area is HurtboxComponent:
         queue_free()
         return
-
-    # Legacy: old-style enemies (no longer present after cleanup)
-    if area.is_in_group("enemy_hurtbox") or area.name.begins_with("AttackHitbox"):
-        var enemy: Node = area.get_parent()
-        if enemy and enemy.has_method("receive_player_hit"):
-            enemy.receive_player_hit(_attack_form)
-        queue_free()
