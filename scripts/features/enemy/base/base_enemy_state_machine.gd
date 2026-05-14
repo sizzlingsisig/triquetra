@@ -20,6 +20,7 @@ var _transition_generation: int = 0
 
 ## Attempt a state transition. Returns false if blocked (e.g. DEAD can't leave).
 func transition_to(next_state: State, reason: StringName = &"") -> bool:
+	assert(next_state >= 0 and next_state <= State.DEAD, "BaseStateMachine: invalid next_state")
 	if _current_state == State.DEAD and next_state != State.DEAD:
 		return false
 	if _current_state == next_state:

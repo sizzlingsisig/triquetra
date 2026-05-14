@@ -20,13 +20,14 @@ var _current_health: int = 2
 
 
 func _ready() -> void:
+	assert(max_health > 0, "HealthComponent: max_health must be > 0")
 	reset()
 
 
 ## Override max_health and reset to full.
 func set_max_health(value: int) -> void:
-	if value > 0:
-		max_health = value
+	assert(value > 0, "HealthComponent: max_health must be > 0")
+	max_health = value
 	reset()
 
 
@@ -38,10 +39,10 @@ func reset() -> void:
 
 ## Apply [param amount] damage. Returns new_health. Emits died if <= 0.
 func apply_damage(amount: int) -> int:
-	if amount <= 0:
-		return _current_health
+	assert(amount > 0, "HealthComponent: damage amount must be > 0")
 
 	_current_health = maxi(_current_health - amount, 0)
+	assert(_current_health >= 0, "HealthComponent: health should never go below 0")
 	damage_taken.emit(amount, _current_health)
 	health_changed.emit(_current_health)
 	if _current_health <= 0:

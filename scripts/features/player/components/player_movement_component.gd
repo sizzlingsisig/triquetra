@@ -9,8 +9,6 @@ class_name PlayerMovementComponent
 @export var jump_cooldown: float = 0.12
 @export var max_fall_speed: float = 1200.0
 
-var _gravity: float = 980.0
-
 var _player: PlayerController
 var _is_jumping: bool = false
 var _jump_elapsed: float = 0.0
@@ -20,7 +18,6 @@ var _hit_control_lock_remaining: float = 0.0
 
 func setup(player: PlayerController) -> void:
 	_player = player
-	_gravity = float(ProjectSettings.get_setting("physics/2d/default_gravity", 980.0))
 
 func apply_gravity(delta: float) -> void:
 	if _player == null:
@@ -31,7 +28,7 @@ func apply_gravity(delta: float) -> void:
 			_player.velocity.y = 0.0
 		return
 
-	_player.velocity.y = minf(_player.velocity.y + (_gravity * delta), max_fall_speed)
+	_player.velocity.y = minf(_player.velocity.y + (_player.gravity * delta), max_fall_speed)
 
 func apply_movement(delta: float, speed_modifier: float = 1.0) -> void:
 	var effective_speed: float = move_speed * speed_modifier

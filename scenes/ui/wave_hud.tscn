@@ -1,0 +1,68 @@
+[gd_scene format=3 uid="uid://duyneqo7vi4dl"]
+
+[ext_resource type="Script" uid="uid://bhrkjuq5h2cu5" path="res://scripts/features/wave/wave_hud.gd" id="1_3vou5"]
+
+[node name="HUD" type="CanvasLayer" unique_id=1193088159]
+script = ExtResource("1_3vou5")
+
+[node name="WaveLabel" type="Label" parent="." unique_id=493800514]
+visible = false
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -100.0
+offset_top = 20.0
+offset_right = 100.0
+offset_bottom = 60.0
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="EnemiesLabel" type="Label" parent="." unique_id=1514996072]
+visible = false
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -160.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 50.0
+theme_override_font_sizes/font_size = 24
+text = "Enemies: 0"
+horizontal_alignment = 2
+
+[node name="Overlay" type="ColorRect" parent="." unique_id=1935698146]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0.7)
+
+[node name="ResultLabel" type="Label" parent="Overlay" unique_id=1925776031]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -50.0
+offset_right = 200.0
+offset_bottom = 10.0
+theme_override_font_sizes/font_size = 48
+horizontal_alignment = 1
+
+[node name="RestartLabel" type="Label" parent="Overlay" unique_id=1967639162]
+visible = false
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = 40.0
+offset_right = 150.0
+offset_bottom = 80.0
+theme_override_font_sizes/font_size = 24
+text = "Press Space / Enter to restart"
+horizontal_alignment = 1

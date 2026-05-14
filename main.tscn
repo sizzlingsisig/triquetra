@@ -4,6 +4,8 @@
 [ext_resource type="PackedScene" uid="uid://dejpatrhwmn30" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" uid="uid://dfisrlvompyme" path="res://scenes/enemy/enemy_knight2.tscn" id="3_h2yge"]
 [ext_resource type="PackedScene" uid="uid://wtebj5v701w5" path="res://scenes/ui/pause_menu.tscn" id="4_1bvp3"]
+[ext_resource type="Script" uid="uid://b6trjicgrtx3u" path="res://scripts/features/wave/wave_manager.gd" id="5_lquwl"]
+[ext_resource type="PackedScene" uid="uid://duyneqo7vi4dl" path="res://scenes/ui/wave_hud.tscn" id="6_7mycd"]
 
 [node name="Main" type="Node2D" unique_id=518299312]
 
@@ -16,5 +18,10 @@ position = Vector2(47, 358)
 position = Vector2(778, 176)
 
 [node name="PauseMenu" parent="." unique_id=1237377216 instance=ExtResource("4_1bvp3")]
+
+[node name="WaveManager" type="Node" parent="." unique_id=1086393675]
+script = ExtResource("5_lquwl")
+
+[node name="HUD" parent="WaveManager" unique_id=1193088159 instance=ExtResource("6_7mycd")]
 
 [editable path="Player"]

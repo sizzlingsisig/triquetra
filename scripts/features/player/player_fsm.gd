@@ -87,6 +87,7 @@ func _mark_command_used(cmd: StringName) -> void:
 		_command_cooldowns[cmd] = Time.get_ticks_msec() / 1000.0
 
 func force_state(next_state: int, reason: StringName) -> void:
+	assert(next_state >= 0 and next_state <= PlayerStates.EVASION, "PlayerFSM: invalid next_state %d" % next_state)
 	if _state == next_state:
 		return
 	var prev: int = _state

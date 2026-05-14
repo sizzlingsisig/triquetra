@@ -18,7 +18,7 @@ var _input_buffer: Node
 
 func get_input_buffer() -> Node:
 	return _input_buffer
-@onready var _fsm = $Fsm
+@onready var _fsm: PlayerRuntimeFsm = $Fsm
 
 var _facing: Vector2 = Vector2.RIGHT
 
