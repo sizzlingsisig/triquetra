@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://bqj6umh3fqhcv" path="res://scenes/background.tscn" id="1_0xm2m"]
 [ext_resource type="PackedScene" uid="uid://dejpatrhwmn30" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" uid="uid://dfisrlvompyme" path="res://scenes/enemy/enemy_knight2.tscn" id="3_h2yge"]
+[ext_resource type="PackedScene" uid="uid://wtebj5v701w5" path="res://scenes/ui/pause_menu.tscn" id="4_1bvp3"]
 
 [node name="Main" type="Node2D" unique_id=518299312]
 
@@ -13,5 +14,7 @@ position = Vector2(47, 358)
 
 [node name="Knight" parent="." unique_id=1549864224 instance=ExtResource("3_h2yge")]
 position = Vector2(778, 176)
+
+[node name="PauseMenu" parent="." unique_id=1237377216 instance=ExtResource("4_1bvp3")]
 
 [editable path="Player"]

@@ -79,9 +79,15 @@ func set_playing(reason: StringName = &"") -> bool:
 
 func toggle_pause() -> bool:
 	if _current_state == GameState.PLAYING:
-		return request_state(GameState.PAUSED, &"toggle_pause")
+		var result := request_state(GameState.PAUSED, &"toggle_pause")
+		if result:
+			get_tree().paused = true
+		return result
 	if _current_state == GameState.PAUSED:
-		return request_state(GameState.PLAYING, &"toggle_pause")
+		var result := request_state(GameState.PLAYING, &"toggle_pause")
+		if result:
+			get_tree().paused = false
+		return result
 	return false
 
 func enter_dialogue(reason: StringName = &"") -> bool:
