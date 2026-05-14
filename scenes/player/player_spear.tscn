@@ -1,14 +1,14 @@
 [gd_scene format=3 uid="uid://cysudyucfyst1"]
 
-[ext_resource type="PackedScene" uid="uid://b4d5ry7gk7m6p" path="res://scenes/player/base_player.tscn" id="1_base"]
 [ext_resource type="Texture2D" uid="uid://0sp8lfwj3lyb" path="res://assets/skeleton_sprites/Skeleton_Spearman/Idle.png" id="1"]
+[ext_resource type="PackedScene" uid="uid://b4d5ry7gk7m6p" path="res://scenes/player/base_player.tscn" id="1_base"]
 [ext_resource type="Texture2D" uid="uid://v0t2w57wdhy5" path="res://assets/skeleton_sprites/Skeleton_Spearman/Walk.png" id="2"]
 [ext_resource type="Texture2D" uid="uid://c3efgxhr6o8m3" path="res://assets/skeleton_sprites/Skeleton_Spearman/Run.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://boeougmh8lx62" path="res://assets/skeleton_sprites/Skeleton_Spearman/Attack_1.png" id="4"]
 [ext_resource type="Texture2D" uid="uid://c60jrxn0o32af" path="res://assets/skeleton_sprites/Skeleton_Spearman/Attack_2.png" id="5"]
 [ext_resource type="Texture2D" uid="uid://dugcp8rbi7ujf" path="res://assets/skeleton_sprites/Skeleton_Spearman/Run+attack.png" id="6"]
 [ext_resource type="Texture2D" uid="uid://cdleugca8v3ft" path="res://assets/skeleton_sprites/Skeleton_Spearman/Dead.png" id="7"]
-[ext_resource type="Script" uid="uid://cgroxc0bypajt" path="res://scripts/features/player/player_controller.gd" id="ctrl"]
+[ext_resource type="Script" uid="uid://c6xu10d2rg6ud" path="res://scripts/features/player/components/player_vfx_component.gd" id="9_chi7q"]
 
 [sub_resource type="AtlasTexture" id="a_atk1_0"]
 atlas = ExtResource("4")
@@ -113,10 +113,6 @@ region = Rect2(512, 0, 128, 128)
 [sub_resource type="AtlasTexture" id="a_run_5"]
 atlas = ExtResource("3")
 region = Rect2(640, 0, 128, 128)
-
-[sub_resource type="AtlasTexture" id="a_run_6"]
-atlas = ExtResource("3")
-region = Rect2(768, 0, 128, 128)
 
 [sub_resource type="AtlasTexture" id="a_rnatk_0"]
 atlas = ExtResource("6")
@@ -266,9 +262,6 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("a_run_5")
-}, {
-"duration": 1.0,
-"texture": SubResource("a_run_6")
 }],
 "loop": true,
 "name": &"run",
@@ -321,12 +314,14 @@ animations = [{
 "speed": 12.0
 }]
 
-[node name="PlayerSpear" instance=ExtResource("1_base")]
-script = ExtResource("ctrl")
+[node name="PlayerSpear" unique_id=2045954689 instance=ExtResource("1_base")]
 form_id = &"Spear"
 move_speed = 190.0
 attack_offset = Vector2(40, -15)
 
-[node name="Sprite" parent="."]
+[node name="Sprite" parent="." index="0"]
 sprite_frames = SubResource("frames")
 animation = &"idle"
+
+[node name="VFXComponent" type="Node" parent="." index="7" unique_id=437214915]
+script = ExtResource("9_chi7q")

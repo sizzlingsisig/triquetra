@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cn42nlhfqathn"]
 
-[ext_resource type="PackedScene" uid="uid://b4d5ry7gk7m6p" path="res://scenes/player/base_player.tscn" id="1_base"]
 [ext_resource type="Texture2D" uid="uid://de2fw7gbl8htt" path="res://assets/skeleton_sprites/Skeleton_Warrior/Idle.png" id="1"]
+[ext_resource type="PackedScene" uid="uid://b4d5ry7gk7m6p" path="res://scenes/player/base_player.tscn" id="1_base"]
 [ext_resource type="Texture2D" uid="uid://csld4ylp3yhyi" path="res://assets/skeleton_sprites/Skeleton_Warrior/Run.png" id="2"]
 [ext_resource type="Texture2D" uid="uid://qp453clhhc5l" path="res://assets/skeleton_sprites/Skeleton_Warrior/Attack_1.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://vidctovbjujf" path="res://assets/skeleton_sprites/Skeleton_Warrior/Attack_2.png" id="4"]
@@ -9,7 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://ccphhm5aljrvf" path="res://assets/skeleton_sprites/Skeleton_Warrior/Protect.png" id="6"]
 [ext_resource type="Texture2D" uid="uid://b263ahh6vp0wi" path="res://assets/skeleton_sprites/Skeleton_Warrior/Dead.png" id="7"]
 [ext_resource type="Texture2D" uid="uid://rr2p3735vmty" path="res://assets/skeleton_sprites/Skeleton_Warrior/Run+attack.png" id="8"]
-[ext_resource type="Script" uid="uid://cgroxc0bypajt" path="res://scripts/features/player/player_controller.gd" id="ctrl"]
+[ext_resource type="Script" uid="uid://c6xu10d2rg6ud" path="res://scripts/features/player/components/player_vfx_component.gd" id="10_rb7pw"]
 
 [sub_resource type="AtlasTexture" id="a_atk1_0"]
 atlas = ExtResource("3")
@@ -341,10 +341,12 @@ animations = [{
 "speed": 12.0
 }]
 
-[node name="PlayerSword" instance=ExtResource("1_base")]
-script = ExtResource("ctrl")
+[node name="PlayerSword" unique_id=1375504772 instance=ExtResource("1_base")]
 move_speed = 300.0
 
-[node name="Sprite" parent="."]
+[node name="Sprite" parent="." index="0"]
 sprite_frames = SubResource("frames")
 animation = &"block"
+
+[node name="VFXComponent" type="Node" parent="." index="7" unique_id=129118601]
+script = ExtResource("10_rb7pw")

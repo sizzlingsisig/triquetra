@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/features/combat/projectiles/player_arrow_projectile.gd" id="arrow_projectile_script"]
-[ext_resource type="Texture2D" uid="uid://bobx5f7a3nwa7" path="res://assets/skeleton_sprites/Skeleton_Archer/Arrow.png" id="arrow_texture"]
+[ext_resource type="Texture2D" path="res://assets/skeleton_sprites/Skeleton_Archer/Arrow.png" id="arrow_texture"]
 
 [sub_resource type="CircleShape2D" id="arrow_shape"]
 radius = 6.0

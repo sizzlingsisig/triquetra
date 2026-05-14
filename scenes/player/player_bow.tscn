@@ -1,15 +1,15 @@
 [gd_scene format=3 uid="uid://cqhsxwgbpcveg"]
 
-[ext_resource type="PackedScene" uid="uid://b4d5ry7gk7m6p" path="res://scenes/player/base_player.tscn" id="1_base"]
 [ext_resource type="Texture2D" uid="uid://bpcuqc5jrqb23" path="res://assets/skeleton_sprites/Skeleton_Archer/Idle.png" id="1"]
+[ext_resource type="PackedScene" uid="uid://b4d5ry7gk7m6p" path="res://scenes/player/base_player.tscn" id="1_base"]
 [ext_resource type="Texture2D" uid="uid://cm72cf2xhg7tv" path="res://assets/skeleton_sprites/Skeleton_Archer/Walk.png" id="2"]
 [ext_resource type="Texture2D" uid="uid://dbe7rvya0r81b" path="res://assets/skeleton_sprites/Skeleton_Archer/Shot_1.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://seqygd1oid3d" path="res://assets/skeleton_sprites/Skeleton_Archer/Shot_2.png" id="4"]
 [ext_resource type="Texture2D" uid="uid://dd0yw7s8f3ceq" path="res://assets/skeleton_sprites/Skeleton_Archer/Evasion.png" id="5"]
 [ext_resource type="Texture2D" uid="uid://clylgare108j2" path="res://assets/skeleton_sprites/Skeleton_Archer/Dead.png" id="6"]
-[ext_resource type="Script" uid="uid://cgroxc0bypajt" path="res://scripts/features/player/player_controller.gd" id="ctrl"]
-[ext_resource type="Script" path="res://scripts/features/player/states/state_bow_attack.gd" id="bow_attack"]
-[ext_resource type="Script" path="res://scripts/features/player/states/state_evasion.gd" id="evasion"]
+[ext_resource type="Script" uid="uid://c6xu10d2rg6ud" path="res://scripts/features/player/components/player_vfx_component.gd" id="10_gr5e3"]
+[ext_resource type="Script" uid="uid://bwvijmhhr3jue" path="res://scripts/features/player/states/state_bow_attack.gd" id="bow_attack"]
+[ext_resource type="Script" uid="uid://df2hdoym6thhp" path="res://scripts/features/player/states/state_evasion.gd" id="evasion"]
 
 [sub_resource type="AtlasTexture" id="atlas_dead_0"]
 atlas = ExtResource("6")
@@ -432,27 +432,29 @@ animations = [{
 [sub_resource type="CircleShape2D" id="arrow_shape"]
 radius = 6.0
 
-[node name="PlayerBow" instance=ExtResource("1_base")]
-script = ExtResource("ctrl")
+[node name="PlayerBow" unique_id=198011865 instance=ExtResource("1_base")]
 form_id = &"Bow"
 
-[node name="Sprite" parent="."]
+[node name="Sprite" parent="." index="0"]
 sprite_frames = SubResource("frames")
 animation = &"idle"
 
-[node name="ArrowSpawnMarker" type="Node2D" parent="."]
+[node name="StateBowAttack" type="Node" parent="Fsm" index="7" unique_id=1277699458]
+script = ExtResource("bow_attack")
+
+[node name="StateEvasion" type="Node" parent="Fsm" index="8" unique_id=1048946047]
+script = ExtResource("evasion")
+
+[node name="ArrowSpawnMarker" type="Node2D" parent="." index="7" unique_id=2128224810]
 position = Vector2(30, -15)
 
-[node name="ArrowHitbox" type="Area2D" parent="."]
+[node name="ArrowHitbox" type="Area2D" parent="." index="8" unique_id=640556782]
 position = Vector2(30, -15)
 collision_layer = 0
 collision_mask = 2
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="ArrowHitbox"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ArrowHitbox" index="0" unique_id=1207389132]
 shape = SubResource("arrow_shape")
 
-[node name="StateBowAttack" type="Node" parent="Fsm"]
-script = ExtResource("bow_attack")
-
-[node name="StateEvasion" type="Node" parent="Fsm"]
-script = ExtResource("evasion")
+[node name="VFXComponent" type="Node" parent="." index="9" unique_id=2010335677]
+script = ExtResource("10_gr5e3")

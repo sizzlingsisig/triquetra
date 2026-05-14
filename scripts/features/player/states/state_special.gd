@@ -1,8 +1,6 @@
 class_name StateSpecial
 extends PlayerStateNode
 
-const Fsm = preload("res://scripts/features/player/player_fsm.gd")
-
 var _animation_finished: bool = false
 var _timer: float = 0.0
 var _motion_blur: ShaderMaterial
@@ -38,9 +36,10 @@ func enter(_prev: int) -> void:
 			_blur_tween = create_tween()
 			_blur_tween.tween_method(func(v: float): _motion_blur.set_shader_parameter(&"intensity", v), 1.0, 0.0, 0.35)
 		# Camera shake
-		_controller.trigger_camera_shake(3.0, 0.12)
-		# Speed trail behind character
-		_controller.spawn_speed_trail(forward_dir)
+		var vfx := _controller.get_node_or_null("VFXComponent") as PlayerVFXComponent
+		if vfx:
+			vfx.trigger_camera_shake(3.0, 0.12)
+			vfx.spawn_speed_trail(forward_dir)
 	elif _controller.form_id == &"Sword":
 		_controller.play_animation(&"block")
 		if sprite:
@@ -48,7 +47,9 @@ func enter(_prev: int) -> void:
 			sprite.self_modulate = Color.WHITE
 			var flash_tween: Tween = create_tween()
 			flash_tween.tween_property(sprite, "self_modulate", Color(0.6, 0.7, 1.0), 0.1)
-		_controller.spawn_shield_ring()
+		var vfx := _controller.get_node_or_null("VFXComponent") as PlayerVFXComponent
+		if vfx:
+			vfx.spawn_shield_ring()
 
 func exit(_next: int) -> void:
 	if _blur_tween:
