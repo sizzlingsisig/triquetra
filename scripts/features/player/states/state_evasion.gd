@@ -1,8 +1,6 @@
 class_name StateEvasion
 extends PlayerStateNode
 
-const Fsm = preload("res://scripts/features/player/player_fsm.gd")
-
 const DASH_SPEED: float = 400.0
 
 var _animation_finished: bool = false

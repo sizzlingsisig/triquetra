@@ -1,8 +1,6 @@
 class_name StateSwitching
 extends PlayerStateNode
 
-const Fsm = preload("res://scripts/features/player/player_fsm.gd")
-
 func _ready() -> void:
 	state_id = Fsm.PlayerStates.SWITCHING
 

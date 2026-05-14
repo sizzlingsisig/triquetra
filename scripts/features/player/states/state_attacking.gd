@@ -1,8 +1,6 @@
 class_name StateAttacking
 extends PlayerStateNode
 
-const Fsm = preload("res://scripts/features/player/player_fsm.gd")
-
 var _combo_index: int = 0
 var _animations: Array[StringName] = [&"attack", &"attack2", &"attack3", &"run_attack"]
 var _animation_finished: bool = false

@@ -1,8 +1,6 @@
 class_name StateBowAttack
 extends PlayerStateNode
 
-const Fsm = preload("res://scripts/features/player/player_fsm.gd")
-
 var _combo_index: int = 0
 var _animations: Array[StringName] = [&"shot", &"shot_2"]
 var _animation_finished: bool = false
