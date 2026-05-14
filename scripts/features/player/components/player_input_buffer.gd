@@ -22,7 +22,7 @@ var _buffered_command_id: StringName = &""
 var _buffered_command_time_left: float = 0.0
 var _player: PlayerController
 
-func _is_command_allowed(command_id: StringName) -> bool:
+func _is_command_allowed(_command_id: StringName) -> bool:
 	if _player and _player.runtime_fsm:
 		var state: int = _player.runtime_fsm.get_state()
 		if state == PlayerRuntimeFsm.PlayerStates.DEAD \
@@ -47,14 +47,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			game_state.toggle_pause()
 		return
 
-	if _player._is_game_over_state():
+	if _player.is_game_over_state():
 		if _is_action_pressed(event, action_attack) or _is_action_pressed(event, action_jump) or _is_action_pressed(event, action_special):
 			var game_manager: Node = get_node_or_null("/root/GameManager")
 			if game_manager and game_manager.has_method("request_timeline_reset"):
 				game_manager.request_timeline_reset(&"player_retry")
 		return
 
-	if not _player._can_process_combat():
+	if not _player.can_process_combat():
 		return
 
 	if _buffer_if_action_pressed(event, action_swap_next, COMMAND_SWAP_NEXT):

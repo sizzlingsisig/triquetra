@@ -110,26 +110,8 @@ func _on_target_exited(exited: Node2D) -> void:
 ## ---------------------------------------------------------------
 
 func _on_hurtbox_hit(source: Node, hit_position: Vector2) -> void:
-	# Track hit direction for death launch.
-	_last_hit_direction = signf(global_position.x - hit_position.x) if hit_position.x != global_position.x else 1.0
-	# Flash sprite white.
-	if animated_sprite and not health_component.is_dead():
-		animated_sprite.modulate = Color(2.0, 1.2, 1.2, 1.0)
-		var tree: SceneTree = get_tree()
-		if tree:
-			var flash_timer := tree.create_timer(0.04)
-			flash_timer.timeout.connect(func() -> void:
-				if animated_sprite and is_instance_valid(animated_sprite):
-					animated_sprite.modulate = Color.WHITE
-			)
-	# Knockback away from the hit source.
-	velocity = Vector2(_last_hit_direction * 180.0, -120.0)
-	
-	# Apply damage, then become briefly invulnerable.
-	if health_component:
-		health_component.apply_damage(1)
-	if state_machine:
-		state_machine.transition_to(BaseStateMachine.State.HURT, &"damage_taken")
+	super(source, hit_position)  # Base handles flash, knockback, damage, hurt state
+	# Knight-specific: enable invulnerability matching hurt animation duration
 	hurtbox_component.make_invulnerable()
 
 

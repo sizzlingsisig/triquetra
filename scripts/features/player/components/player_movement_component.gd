@@ -54,7 +54,7 @@ func apply_movement(delta: float, speed_modifier: float = 1.0) -> void:
 	if abs(input_direction.x) > 0.01:
 		_player.velocity.x = input_direction.x * effective_speed
 		if _player:
-			_player._set_sprite_facing(input_direction.x < 0.0)
+			_player.set_sprite_facing(input_direction.x < 0.0)
 	else:
 		_player.velocity.x = move_toward(_player.velocity.x, 0.0, effective_speed)
 
